@@ -156,6 +156,7 @@ HC Database (HydraChain Database) - это встраиваемая систем
 
 ## Структура проекта
 
+```
 hc_db/
 ├── lib/
 │   ├── core/
@@ -181,6 +182,7 @@ hc_db/
 ├── test/
 │   └── hc_db_test.dart
 └── pubspec.yaml
+```
 
 ## Примеры использования
 
