@@ -1,14 +1,20 @@
 library;
 
 import 'dart:async';
+import 'dart:io';
+import 'dart:convert';
 import 'transaction.dart';
 import 'cache.dart';
+import '../tables/table_manager.dart';
+import 'package:logging/logging.dart';
 
 class Database {
-  // Синглтон экземпляр базы данных
   static final Database _instance = Database._internal();
   factory Database() => _instance;
   Database._internal();
+
+  // Логгер
+  static final Logger _logger = Logger('Database');
 
   // Управление соединениями
   final Map<String, DatabaseConnection> _connections = {};
@@ -23,7 +29,129 @@ class Database {
   Future<void> init() async {
     // Инициализация компонентов
     await _cache.init();
-    print('База данных инициализирована');
+    _logger.info('База данных инициализирована');
+  }
+  
+  // Проверяет, существует ли база данных по указанному пути
+  Future<bool> _databaseExists(String databasePath) async {
+    final directory = Directory(databasePath);
+    return await directory.exists();
+  }
+  
+  // Создает директорию базы данных
+  Future<void> _createDatabaseDirectory(String databasePath) async {
+    final directory = Directory(databasePath);
+    if (!await directory.exists()) {
+      await directory.create(recursive: true);
+    }
+  }
+  
+  // Создает файл конфигурации базы данных
+  Future<void> _createConfigFile(
+    String databasePath,
+    String databaseName,
+    TableType tableType,
+    List<String> measurements,
+    List<String> resources,
+  ) async {
+    final configPath = '$databasePath/$databaseName.config';
+    final configFile = File(configPath);
+    
+    final configData = {
+      'databaseName': databaseName,
+      'tableType': tableType.toString(),
+      'measurements': measurements,
+      'resources': resources,
+      'createdAt': DateTime.now().toIso8601String(),
+    };
+    
+    final jsonString = JsonEncoder.withIndent('  ').convert(configData);
+    await configFile.writeAsString(jsonString);
+  }
+  
+  // Создает таблицы базы данных
+  Future<void> _createTables(
+    String databasePath,
+    String databaseName,
+    TableType tableType,
+  ) async {
+    // Создаем файлы таблиц
+    await _createTableFile(databasePath, databaseName, 'movements');
+    await _createTableFile(databasePath, databaseName, 'aggregations');
+    await _createTableFile(databasePath, databaseName, 'turnovers');
+  }
+  
+  // Создает файл таблицы
+  Future<void> _createTableFile(
+    String databasePath,
+    String databaseName,
+    String tableName,
+  ) async {
+    final tablePath = '$databasePath/${databaseName}.$tableName';
+    final tableFile = File(tablePath);
+    await tableFile.create();
+  }
+  
+  // Создание базы данных
+  /// Создает физическую структуру базы данных на диске
+  ///
+  /// @param directoryPath - путь к каталогу для создания базы данных
+  /// @param databaseName - название базы данных
+  /// @param tableType - тип таблицы
+  /// @param measurements - список измерений
+  /// @param resources - список ресурсов
+  /// @return Future<void> - асинхронная операция создания базы данных
+  Future<void> createDatabase(
+    String directoryPath,
+    String databaseName,
+    TableType tableType,
+    List<String> measurements,
+    List<String> resources,
+  ) async {
+    // Проверка входных параметров
+    if (directoryPath.isEmpty) {
+      throw ArgumentError('Путь к каталогу не может быть пустым или null');
+    }
+    if (databaseName.isEmpty) {
+      throw ArgumentError('Название базы данных не может быть пустым или null');
+    }
+    if (measurements.isEmpty) {
+      throw ArgumentError('Список измерений не может быть пустым или null');
+    }
+    if (resources.isEmpty) {
+      throw ArgumentError('Список ресурсов не может быть пустым или null');
+    }
+    
+    // Создание пути к новой базе данных
+    final databasePath = '$directoryPath/$databaseName';
+    
+    try {
+      // Проверяем, существует ли уже такая база данных
+      if (await _databaseExists(databasePath)) {
+        throw StateError('База данных "$databaseName" уже существует');
+      }
+      
+      // Создаем директорию базы данных
+      await _createDatabaseDirectory(databasePath);
+      
+      // Создаем файл конфигурации
+      await _createConfigFile(databasePath, databaseName, tableType, measurements, resources);
+      
+      // Создаем таблицы
+      await _createTables(databasePath, databaseName, tableType);
+      
+      _logger.info('Создана база данных "$databaseName" в каталоге "$directoryPath"');
+      _logger.info('Тип таблицы: $tableType');
+      _logger.info('Измерения: $measurements');
+      _logger.info('Ресурсы: $resources');
+      
+    } catch (error, stackTrace) {
+      _logger.severe('Ошибка при создании базы данных "$databaseName": $error', error, stackTrace);
+      rethrow;
+    }
+    
+    // Инициализация базы данных
+    await init();
   }
 
   // Создание соединения с базой данных
