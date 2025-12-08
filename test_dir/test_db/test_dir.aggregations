@@ -1,0 +1,10 @@
+// DATABASE HEADER
+// Generated: 2025-12-08T19:03:23.085602
+// Version: 1.0.0
+databaseName: test_dir
+pageSize: 4096
+extentSize: 65536
+minReserveExtents: 10
+created: 2025-12-08T19:03:23.011780
+version: 1.0.0
+// END HEADER

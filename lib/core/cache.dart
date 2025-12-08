@@ -20,7 +20,7 @@ class Cache {
   final Map<String, CacheEntry<dynamic>> _cache = {};
   final List<String> _accessOrder = [];
   final Duration _defaultTtl;
-  int _maxSize;
+  final int _maxSize;
 
   Cache({Duration? defaultTtl, int maxSize = 1000})
       : _defaultTtl = defaultTtl ?? const Duration(hours: 1),
