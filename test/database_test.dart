@@ -375,7 +375,7 @@ void main() {
     
     test('Database table files should have correct initial content and size', () async {
       // Создаем базу данных с типом universal
-      final db = await Database.createDatabase(
+      await Database.createDatabase(
         directoryPath: './db',
         databaseName: 'test_table_content',
         tableType: TableType.universal,
@@ -410,6 +410,145 @@ void main() {
       expect(movementsContent.contains('test_table_content'), true, reason: 'Файл movements не содержит имя базы данных');
       expect(aggregationsContent.contains('test_table_content'), true, reason: 'Файл aggregations не содержит имя базы данных');
       expect(turnoversContent.contains('test_table_content'), true, reason: 'Файл turnovers не содержит имя базы данных');
+    });
+ });
+  
+  group('Database Header Tests', () {
+    setUp(() {
+      // Создаем директорию db перед тестами, если она не существует
+      Directory('./db').createSync(recursive: true);
+    });
+    
+    tearDown(() {
+      // Удаляем только созданные тестами базы данных
+      for (final dbName in createdDatabases) {
+        final dbDir = Directory('./db/$dbName');
+        if (dbDir.existsSync()) {
+          dbDir.deleteSync(recursive: true);
+        }
+      }
+      // Очищаем список созданных баз данных
+      createdDatabases.clear();
+    });
+    
+    test('Database files should contain proper header structure', () async {
+      // Создаем базу данных с типом universal
+      final db = await Database.createDatabase(
+        directoryPath: './db',
+        databaseName: 'test_header_structure',
+        tableType: TableType.universal,
+        measurements: ['measurement1'],
+        resources: ['resource1'],
+      );
+      
+      // Добавляем созданную базу данных в список для последующего удаления
+      createdDatabases.add('test_header_structure');
+      
+      // Проверяем содержимое файлов таблиц
+      final movementsFile = File('./db/test_header_structure/test_header_structure.movements');
+      final aggregationsFile = File('./db/test_header_structure/test_header_structure.aggregations');
+      final turnoversFile = File('./db/test_header_structure/test_header_structure.turnovers');
+      
+      // Проверяем, что файлы существуют
+      expect(await movementsFile.exists(), true);
+      expect(await aggregationsFile.exists(), true);
+      expect(await turnoversFile.exists(), true);
+      
+      // Читаем содержимое файлов
+      final movementsContent = await movementsFile.readAsString();
+      final aggregationsContent = await aggregationsFile.readAsString();
+      final turnoversContent = await turnoversFile.readAsString();
+      
+      // Проверяем, что содержимое начинается с заголовка
+      expect(movementsContent.startsWith('// DATABASE HEADER'), true, reason: 'Файл movements не содержит заголовок');
+      expect(aggregationsContent.startsWith('// DATABASE HEADER'), true, reason: 'Файл aggregations не содержит заголовок');
+      expect(turnoversContent.startsWith('// DATABASE HEADER'), true, reason: 'Файл turnovers не содержит заголовок');
+      
+      // Проверяем, что содержимое заканчивается маркером конца заголовка
+      expect(movementsContent.contains('// END HEADER'), true, reason: 'Файл movements не содержит маркер окончания заголовка');
+      expect(aggregationsContent.contains('// END HEADER'), true, reason: 'Файл aggregations не содержит маркер окончания заголовка');
+      expect(turnoversContent.contains('// END HEADER'), true, reason: 'Файл turnovers не содержит маркер окончания заголовка');
+      
+      // Проверяем, что заголовок содержит основную информацию о базе данных
+      expect(movementsContent.contains('databaseName: test_header_structure'), true, reason: 'Файл movements не содержит имя базы данных в заголовке');
+      expect(aggregationsContent.contains('databaseName: test_header_structure'), true, reason: 'Файл aggregations не содержит имя базы данных в заголовке');
+      expect(turnoversContent.contains('databaseName: test_header_structure'), true, reason: 'Файл turnovers не содержит имя базы данных в заголовке');
+      
+      expect(movementsContent.contains('pageSize: ${db.pageSize}'), true, reason: 'Файл movements не содержит размер страницы в заголовке');
+      expect(aggregationsContent.contains('pageSize: ${db.pageSize}'), true, reason: 'Файл aggregations не содержит размер страницы в заголовке');
+      expect(turnoversContent.contains('pageSize: ${db.pageSize}'), true, reason: 'Файл turnovers не содержит размер страницы в заголовке');
+      
+      expect(movementsContent.contains('extentSize: ${db.extentSize}'), true, reason: 'Файл movements не содержит размер экстента в заголовке');
+      expect(aggregationsContent.contains('extentSize: ${db.extentSize}'), true, reason: 'Файл aggregations не содержит размер экстента в заголовке');
+      expect(turnoversContent.contains('extentSize: ${db.extentSize}'), true, reason: 'Файл turnovers не содержит размер экстента в заголовке');
+      
+      expect(movementsContent.contains('minReserveExtents: ${db.minReserveExtents}'), true, reason: 'Файл movements не содержит минимальное количество зарезервированных экстентов в заголовке');
+      expect(aggregationsContent.contains('minReserveExtents: ${db.minReserveExtents}'), true, reason: 'Файл aggregations не содержит минимальное количество зарезервированных экстентов в заголовке');
+      expect(turnoversContent.contains('minReserveExtents: ${db.minReserveExtents}'), true, reason: 'Файл turnovers не содержит минимальное количество зарезервированных экстентов в заголовке');
+    });
+    
+    test('Database header should contain creation timestamp', () async {
+      // Создаем базу данных с типом universal
+      await Database.createDatabase(
+        directoryPath: './db',
+        databaseName: 'test_header_timestamp',
+        tableType: TableType.universal,
+        measurements: ['measurement1'],
+        resources: ['resource1'],
+      );
+      
+      // Добавляем созданную базу данных в список для последующего удаления
+      createdDatabases.add('test_header_timestamp');
+      
+      // Проверяем содержимое файлов таблиц
+      final movementsFile = File('./db/test_header_timestamp/test_header_timestamp.movements');
+      final aggregationsFile = File('./db/test_header_timestamp/test_header_timestamp.aggregations');
+      final turnoversFile = File('./db/test_header_timestamp/test_header_timestamp.turnovers');
+      
+      // Проверяем, что файлы существуют
+      expect(await movementsFile.exists(), true);
+      expect(await aggregationsFile.exists(), true);
+      expect(await turnoversFile.exists(), true);
+      
+      // Читаем содержимое файлов
+      final movementsContent = await movementsFile.readAsString();
+      final aggregationsContent = await aggregationsFile.readAsString();
+      final turnoversContent = await turnoversFile.readAsString();
+      
+      // Проверяем, что заголовок содержит дату создания
+      expect(movementsContent.contains('created:'), true, reason: 'Файл movements не содержит дату создания в заголовке');
+      expect(aggregationsContent.contains('created:'), true, reason: 'Файл aggregations не содержит дату создания в заголовке');
+      expect(turnoversContent.contains('created:'), true, reason: 'Файл turnovers не содержит дату создания в заголовке');
+    });
+    
+    test('Database header should not be duplicated when file exists', () async {
+      // Создаем базу данных с типом universal
+      await Database.createDatabase(
+        directoryPath: './db',
+        databaseName: 'test_header_duplicate',
+        tableType: TableType.universal,
+        measurements: ['measurement1'],
+        resources: ['resource1'],
+      );
+      
+      // Добавляем созданную базу данных в список для последующего удаления
+      createdDatabases.add('test_header_duplicate');
+      
+      // Проверяем содержимое файла таблицы
+      final movementsFile = File('./db/test_header_duplicate/test_header_duplicate.movements');
+      
+      // Проверяем, что файл существует
+      expect(await movementsFile.exists(), true);
+      
+      // Читаем содержимое файла
+      final movementsContent = await movementsFile.readAsString();
+      
+      // Проверяем, что заголовок начинается с правильного маркера
+      expect(movementsContent.startsWith('// DATABASE HEADER'), true, reason: 'Файл movements не начинается с заголовка');
+      
+      // Проверяем, что маркер начала заголовка встречается только один раз в начале файла
+      final allHeaderMarkers = movementsContent.split('// DATABASE HEADER');
+      expect(allHeaderMarkers.length, 1, reason: 'Найдено несколько маркеров начала заголовка в файле');
     });
   });
 }
