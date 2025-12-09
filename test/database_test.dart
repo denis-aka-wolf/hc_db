@@ -6,7 +6,7 @@ import 'dart:io';
 final List<String> createdDatabases = [];
 
 void main() {
-  group('Database Tests', () {
+  group('Create Database', () {
     setUp(() {
       // Создаем директорию db перед тестами, если она не существует
       Directory('./db').createSync(recursive: true);
@@ -60,6 +60,69 @@ void main() {
       await db.init();
       // Проверяем, что база данных инициализирована без ошибок
       expect(true, true);
+    });
+    
+    test('Database creation with balance table type', () async {
+      // Тестируем создание базы данных с типом таблицы balance
+      final db = await Database.createDatabase(
+        directoryPath: './db',
+        databaseName: 'test_db_balance',
+        tableType: TableType.balance,
+        measurements: ['measurement1'],
+        resources: ['resource1'],
+      );
+      
+      // Добавляем созданную базу данных в список для последующего удаления
+      createdDatabases.add('test_db_balance');
+      
+      // Проверяем, что свойства установлены правильно
+      expect(db.directoryPath, './db');
+      expect(db.databaseName, 'test_db_balance');
+      expect(db.tableType, TableType.balance);
+      expect(db.measurements, ['measurement1']);
+      expect(db.resources, ['resource1']);
+    });
+    
+    test('Database creation with turnover table type', () async {
+      // Тестируем создание базы данных с типом таблицы turnover
+      final db = await Database.createDatabase(
+        directoryPath: './db',
+        databaseName: 'test_db_turnover',
+        tableType: TableType.turnover,
+        measurements: ['measurement1'],
+        resources: ['resource1'],
+      );
+      
+      // Добавляем созданную базу данных в список для последующего удаления
+      createdDatabases.add('test_db_turnover');
+      
+      // Проверяем, что свойства установлены правильно
+      expect(db.directoryPath, './db');
+      expect(db.databaseName, 'test_db_turnover');
+      expect(db.tableType, TableType.turnover);
+      expect(db.measurements, ['measurement1']);
+      expect(db.resources, ['resource1']);
+    });
+    
+    test('Database creation with universal table type', () async {
+      // Тестируем создание базы данных с типом таблицы universal
+      final db = await Database.createDatabase(
+        directoryPath: './db',
+        databaseName: 'test_db_universal',
+        tableType: TableType.universal,
+        measurements: ['measurement1'],
+        resources: ['resource1'],
+      );
+      
+      // Добавляем созданную базу данных в список для последующего удаления
+      createdDatabases.add('test_db_universal');
+      
+      // Проверяем, что свойства установлены правильно
+      expect(db.directoryPath, './db');
+      expect(db.databaseName, 'test_db_universal');
+      expect(db.tableType, TableType.universal);
+      expect(db.measurements, ['measurement1']);
+      expect(db.resources, ['resource1']);
     });
   });
 }
