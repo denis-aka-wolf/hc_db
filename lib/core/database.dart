@@ -1,4 +1,4 @@
-library hc_db;
+library;
 
 import 'dart:core';
 import 'dart:io';
@@ -476,7 +476,7 @@ class Database {
 
   // Создает файл таблицы
   Future<void> _createTableFile(String tableName) async {
-    final tablePath = '${databasePath}/${databaseName}.$tableName';
+    final tablePath = '$databasePath/$databaseName.$tableName';
     final tableFile = File(tablePath);
     _logger.fine('Создаем файл таблицы: $tablePath');
     await tableFile.create();
