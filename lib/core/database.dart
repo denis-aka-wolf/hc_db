@@ -1,6 +1,5 @@
 library hc_db;
 
-import 'dart:async';
 import 'dart:core';
 import 'dart:io';
 import 'dart:convert';
@@ -98,18 +97,18 @@ class Database {
     required List<String> measurements,
     required List<String> resources,
   }) async {
-    // Проверка входных параметров
+    // Проверка входных параметров !!!Рефакторинг!!! добавить проверки
     if (directoryPath.isEmpty) {
-      throw ArgumentError('Путь к каталогу не может быть пустым или null');
+      throw ArgumentError('Путь к каталогу не может быть пустым');
     }
     if (databaseName.isEmpty) {
-      throw ArgumentError('Название базы данных не может быть пустым или null');
+      throw ArgumentError('Название базы данных не может быть пустым');
     }
     if (measurements.isEmpty) {
-      throw ArgumentError('Список измерений не может быть пустым или null');
+      throw ArgumentError('Список измерений не может быть пустымъ');
     }
     if (resources.isEmpty) {
-      throw ArgumentError('Список ресурсов не может быть пустым или null');
+      throw ArgumentError('Список ресурсов не может быть пустым');
     }
 
     // Вызываем приватный конструктор
@@ -231,15 +230,14 @@ class Database {
   // Разметка файлов под базу данных
   Future<void> _allocateDatabaseFiles() async {
     try {
-      _logger.fine('Файлы таблиц созданы, вызываем _markDatabaseFiles');
+      _logger.fine('Подготовим файлы таблиц');
       // Размечаем файлы под базу данных согласно параметрам
-      // Это может включать в себя создание заголовков, резервирование пространства и т.д.
       await _markDatabaseFiles();
 
-      _logger.info('Файлы базы данных размечены успешно');
+      _logger.info('Файлы таблиц данных подготовлены');
     } catch (error, stackTrace) {
       _logger.severe(
-        'Ошибка при разметке файлов базы данных: $error',
+        'Ошибка при подготовке файлов таблиц данных: $error',
         error,
         stackTrace,
       );
@@ -257,7 +255,11 @@ class Database {
     _logger.info('Начинаем разметку файлов базы данных "$databaseName"');
     _logger.info('Параметры: размер страницы $pageSize байт, размер экстента $extentSize байт, '
         'минимальное количество зарезервированных экстентов: $minReserveExtents');
-    try {
+    
+    // Резервируем дисковое пространство для файлов таблиц
+    await _reserveDiskSpace();
+
+    try {      
       // Создаем заголовки файлов с информацией о структуре БД
       final headerInfo = {
         'databaseName': databaseName,
@@ -325,6 +327,68 @@ class Database {
       _logger.fine('Заголовок записан в файл: ${file.path}');
     } catch (error, stackTrace) {
       _logger.severe('Не удалось записать заголовок в файл $filePath: $error', error, stackTrace);
+      rethrow;
+    }
+  }
+
+  // Резервирует дисковое пространство для файлов таблиц
+  Future<void> _reserveDiskSpace() async {
+    _logger.fine('Резервируем дисковое пространство для файлов таблиц');
+    try {
+      // Получаем пути к файлам таблиц
+      final movementsPath = '$databasePath/$databaseName.movements';
+      final aggregationsPath = '$databasePath/$databaseName.aggregations';
+      final turnoversPath = '$databasePath/$databaseName.turnovers';
+      
+      // Увеличиваем размер файлов таблиц (только если файлы существуют)
+      await _increaseFileSizeIfExists(movementsPath);
+      await _increaseFileSizeIfExists(aggregationsPath);
+      await _increaseFileSizeIfExists(turnoversPath);
+      
+      _logger.info('Дисковое пространство успешно зарезервировано');
+    } catch (error, stackTrace) {
+      _logger.severe('Ошибка при резервировании дискового пространства: $error', error, stackTrace);
+      rethrow;
+    }
+  }
+
+  // Увеличивает размер файла до указанного размера
+  Future<void> _increaseFileSize(String filePath) async {
+    // Рассчитываем размер резерва: минимальное количество экстентов * размер экстента
+    final reserveSize = minReserveExtents * extentSize;
+    _logger.fine('Размер резерва: $reserveSize байт');
+    try {
+      final file = File(filePath);
+      final currentSize = await file.length();
+      _logger.fine('Текущий размер файла $filePath: $currentSize байт');
+      // !!! РЕФАКТОРИНГ !!! учитывать и свободное место
+      if (currentSize < reserveSize) {
+        _logger.fine('Увеличиваем размер файла $filePath до $reserveSize байт');
+        final RandomAccessFile randomAccessFile = await file.open(mode: FileMode.write);
+        await randomAccessFile.truncate(reserveSize);
+        await randomAccessFile.close();
+        final newSize = await file.length();
+        _logger.fine('Размер файла $filePath увеличен до $newSize байт (ожидалось $reserveSize)');
+      } else {
+        _logger.fine('Файл $filePath уже имеет достаточный размер: $currentSize байт');
+      }
+    } catch (error, stackTrace) {
+      _logger.severe('Ошибка при увеличении размера файла $filePath: $error', error, stackTrace);
+      rethrow;
+    }
+  }
+  
+  // Увеличивает размер файла до указанного размера, если файл существует
+  Future<void> _increaseFileSizeIfExists(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (await file.exists()) {
+        await _increaseFileSize(filePath);
+      } else {
+        _logger.fine('Файл $filePath не существует, пропускаем увеличение размера');
+      }
+    } catch (error, stackTrace) {
+      _logger.severe('Ошибка при проверке существования файла $filePath: $error', error, stackTrace);
       rethrow;
     }
   }
