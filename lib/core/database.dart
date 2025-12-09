@@ -105,7 +105,7 @@ class Database {
       throw ArgumentError('Название базы данных не может быть пустым');
     }
     if (measurements.isEmpty) {
-      throw ArgumentError('Список измерений не может быть пустымъ');
+      throw ArgumentError('Список измерений не может быть пустым');
     }
     if (resources.isEmpty) {
       throw ArgumentError('Список ресурсов не может быть пустым');
