@@ -270,10 +270,28 @@ class Database {
         'version': '1.0.0'
       };
 
-      // Записываем заголовок в каждый файл
-      await _writeHeaderToFile('$databasePath/$databaseName.movements', headerInfo);
-      await _writeHeaderToFile('$databasePath/$databaseName.aggregations', headerInfo);
-      await _writeHeaderToFile('$databasePath/$databaseName.turnovers', headerInfo);
+      // Проверяем существующие файлы и записываем заголовок только в те, которые существуют
+      final movementsPath = '$databasePath/$databaseName.movements';
+      final aggregationsPath = '$databasePath/$databaseName.aggregations';
+      final turnoversPath = '$databasePath/$databaseName.turnovers';
+      
+      // Проверяем и записываем заголовок в файл движений, если он существует
+      final movementsFile = File(movementsPath);
+      if (await movementsFile.exists()) {
+        await _writeHeaderToFile(movementsPath, headerInfo);
+      }
+      
+      // Проверяем и записываем заголовок в файл агрегаций, если он существует
+      final aggregationsFile = File(aggregationsPath);
+      if (await aggregationsFile.exists()) {
+        await _writeHeaderToFile(aggregationsPath, headerInfo);
+      }
+      
+      // Проверяем и записываем заголовок в файл оборотов, если он существует
+      final turnoversFile = File(turnoversPath);
+      if (await turnoversFile.exists()) {
+        await _writeHeaderToFile(turnoversPath, headerInfo);
+      }
 
       _logger.info('Файлы базы данных успешно размечены и заголовки записаны');
     } catch (error, stackTrace) {
