@@ -124,7 +124,7 @@ void main() {
       expect(db.measurements, ['measurement1']);
       expect(db.resources, ['resource1']);
     });
-  });
+ });
   
   group('Database Files Creation Tests', () {
     setUp(() {
@@ -274,6 +274,142 @@ void main() {
         ),
         throwsA(isA<StateError>()),
       );
+    });
+  });
+  
+ group('Database Table Size Tests', () {
+    setUp(() {
+      // Создаем директорию db перед тестами, если она не существует
+      Directory('./db').createSync(recursive: true);
+    });
+    
+    tearDown(() {
+      // Удаляем только созданные тестами базы данных
+      for (final dbName in createdDatabases) {
+        final dbDir = Directory('./db/$dbName');
+        if (dbDir.existsSync()) {
+          dbDir.deleteSync(recursive: true);
+        }
+      }
+      // Очищаем список созданных баз данных
+      createdDatabases.clear();
+    });
+    
+    test('Database table sizes for universal type should match calculated size', () async {
+      // Создаем базу данных с типом universal
+      final db = await Database.createDatabase(
+        directoryPath: './db',
+        databaseName: 'test_table_sizes',
+        tableType: TableType.universal,
+        measurements: ['measurement1', 'measurement2'],
+        resources: ['resource1', 'resource2'],
+      );
+      
+      // Добавляем созданную базу данных в список для последующего удаления
+      createdDatabases.add('test_table_sizes');
+      
+      // Рассчитываем ожидаемый размер файлов таблиц
+      // Размер резерва: минимальное количество экстентов * размер экстента
+      final expectedSize = db.minReserveExtents * db.extentSize; // 10 * 6536 = 655360
+      
+      // Проверяем размер файлов таблиц
+      final movementsFile = File('./db/test_table_sizes/test_table_sizes.movements');
+      final aggregationsFile = File('./db/test_table_sizes/test_table_sizes.aggregations');
+      final turnoversFile = File('./db/test_table_sizes/test_table_sizes.turnovers');
+      
+      // Проверяем, что файлы существуют
+      expect(await movementsFile.exists(), true);
+      expect(await aggregationsFile.exists(), true);
+      expect(await turnoversFile.exists(), true);
+      
+      // Проверяем размеры файлов
+      final movementsSize = await movementsFile.length();
+      final aggregationsSize = await aggregationsFile.length();
+      final turnoversSize = await turnoversFile.length();
+      
+      // Проверяем, что размеры файлов не меньше ожидаемого размера
+      expect(movementsSize >= expectedSize, true, reason: 'Размер файла movements меньше ожидаемого');
+      expect(aggregationsSize >= expectedSize, true, reason: 'Размер файла aggregations меньше ожидаемого');
+      expect(turnoversSize >= expectedSize, true, reason: 'Размер файла turnovers меньше ожидаемого');
+    });
+    
+    test('Database table sizes should match calculated size with custom parameters', () async {
+      // Создаем базу данных с типом universal и проверяем размеры файлов
+      final db = await Database.createDatabase(
+        directoryPath: './db',
+        databaseName: 'test_table_sizes_custom',
+        tableType: TableType.universal,
+        measurements: ['measurement1'],
+        resources: ['resource1'],
+      );
+      
+      // Добавляем созданную базу данных в список для последующего удаления
+      createdDatabases.add('test_table_sizes_custom');
+      
+      // Рассчитываем ожидаемый размер файлов таблиц
+      final expectedSize = db.minReserveExtents * db.extentSize; // 10 * 65536 = 655360
+      
+      // Проверяем размер файлов таблиц
+      final movementsFile = File('./db/test_table_sizes_custom/test_table_sizes_custom.movements');
+      final aggregationsFile = File('./db/test_table_sizes_custom/test_table_sizes_custom.aggregations');
+      final turnoversFile = File('./db/test_table_sizes_custom/test_table_sizes_custom.turnovers');
+      
+      // Проверяем, что файлы существуют
+      expect(await movementsFile.exists(), true);
+      expect(await aggregationsFile.exists(), true);
+      expect(await turnoversFile.exists(), true);
+      
+      // Проверяем размеры файлов
+      final movementsSize = await movementsFile.length();
+      final aggregationsSize = await aggregationsFile.length();
+      final turnoversSize = await turnoversFile.length();
+      
+      // Проверяем, что размеры файлов не меньше ожидаемого размера
+      expect(movementsSize >= expectedSize, true, reason: 'Размер файла movements меньше ожидаемого');
+      expect(aggregationsSize >= expectedSize, true, reason: 'Размер файла aggregations меньше ожидаемого');
+      expect(turnoversSize >= expectedSize, true, reason: 'Размер файла turnovers меньше ожидаемого');
+      
+      // Проверяем, что ожидаемый размер соответствует параметрам базы данных
+      expect(expectedSize, 655360, reason: 'Расчетный размер не соответствует ожидаемому значению (10 * 65536)');
+    });
+    
+    test('Database table files should have correct initial content and size', () async {
+      // Создаем базу данных с типом universal
+      final db = await Database.createDatabase(
+        directoryPath: './db',
+        databaseName: 'test_table_content',
+        tableType: TableType.universal,
+        measurements: ['measurement1'],
+        resources: ['resource1'],
+      );
+      
+      // Добавляем созданную базу данных в список для последующего удаления
+      createdDatabases.add('test_table_content');
+      
+      // Проверяем содержимое файлов таблиц
+      final movementsFile = File('./db/test_table_content/test_table_content.movements');
+      final aggregationsFile = File('./db/test_table_content/test_table_content.aggregations');
+      final turnoversFile = File('./db/test_table_content/test_table_content.turnovers');
+      
+      // Проверяем, что файлы существуют
+      expect(await movementsFile.exists(), true);
+      expect(await aggregationsFile.exists(), true);
+      expect(await turnoversFile.exists(), true);
+      
+      // Читаем содержимое файлов
+      final movementsContent = await movementsFile.readAsString();
+      final aggregationsContent = await aggregationsFile.readAsString();
+      final turnoversContent = await turnoversFile.readAsString();
+      
+      // Проверяем, что содержимое начинается с заголовка
+      expect(movementsContent.startsWith('// DATABASE HEADER'), true, reason: 'Файл movements не содержит заголовок');
+      expect(aggregationsContent.startsWith('// DATABASE HEADER'), true, reason: 'Файл aggregations не содержит заголовок');
+      expect(turnoversContent.startsWith('// DATABASE HEADER'), true, reason: 'Файл turnovers не содержит заголовок');
+      
+      // Проверяем, что содержимое содержит информацию о базе данных
+      expect(movementsContent.contains('test_table_content'), true, reason: 'Файл movements не содержит имя базы данных');
+      expect(aggregationsContent.contains('test_table_content'), true, reason: 'Файл aggregations не содержит имя базы данных');
+      expect(turnoversContent.contains('test_table_content'), true, reason: 'Файл turnovers не содержит имя базы данных');
     });
   });
 }
