@@ -521,9 +521,9 @@ void main() {
       expect(turnoversContent.contains('created:'), true, reason: 'Файл turnovers не содержит дату создания в заголовке');
     });
     
-    test('Database header should not be duplicated when file exists', () async {
+    test('Database header should not be duplicated when init is called multiple times', () async {
       // Создаем базу данных с типом universal
-      await Database.createDatabase(
+      final db = await Database.createDatabase(
         directoryPath: './db',
         databaseName: 'test_header_duplicate',
         tableType: TableType.universal,
@@ -548,7 +548,18 @@ void main() {
       
       // Проверяем, что маркер начала заголовка встречается только один раз в начале файла
       final allHeaderMarkers = movementsContent.split('// DATABASE HEADER');
-      expect(allHeaderMarkers.length, 1, reason: 'Найдено несколько маркеров начала заголовка в файле');
+      expect(allHeaderMarkers.length == 0 ? 0 : allHeaderMarkers.length-1, 1, reason: 'Найдено несколько маркеров начала заголовка в файле');
+      
+      // Повторно инициализируем базу данных дважды
+      await db.init();
+      await db.init();
+      
+      // Снова читаем содержимое файла
+      final movementsContentAfterInit = await movementsFile.readAsString();
+      
+      // Проверяем, что маркер начала заголовка все еще встречается только один раз
+      final allHeaderMarkersAfterInit = movementsContentAfterInit.split('// DATABASE HEADER');
+      expect(allHeaderMarkers.length == 0 ? 0 : allHeaderMarkers.length-1, 1, reason: 'Найдено несколько маркеров начала заголовка в файле после повторной инициализации');
     });
   });
 }

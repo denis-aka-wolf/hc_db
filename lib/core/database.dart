@@ -328,11 +328,14 @@ class Database {
         await file.writeAsString(headerContent);
         _logger.fine('Создан новый файл с заголовком: ${file.path}');
       } else {
-        // Для существующего файла записываем заголовок в начало
+        // Для существующего файла проверяем, есть ли уже заголовок
         // Считываем текущее содержимое
         final currentContent = await file.readAsString();
+        
         // Проверяем, есть ли уже заголовок в файле (по наличию специального маркера)
-        if (currentContent.startsWith('// DATABASE HEADER')) {
+        // Используем более точную проверку, чтобы избежать проблем с пробелами
+        final trimmedContent = currentContent.trimLeft();
+        if (trimmedContent.startsWith('// DATABASE HEADER')) {
           _logger.fine('Заголовок уже существует в файле: ${file.path}');
           return;
         } else {
