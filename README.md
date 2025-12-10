@@ -179,39 +179,42 @@ hc_db/
 
 ## Примеры использования
 
-### Создание таблицы
+### Создание базы данных
 
 ```dart
-final table = Table(
-  name: 'reputation',
-  type: TableType.balance,
+import 'package:hc_db/hc_db.dart';
+
+// Создание базы данных
+final db = await Database.createDatabase(
+  directoryPath: './my_database',
+  databaseName: 'my_accounting_db',
+  tableType: TableType.balance,
   measurements: ['wallet_address', 'user_id'],
   resources: ['amount', 'points'],
 );
 ```
 
-### Вставка движения
+#### Правила именования базы данных
 
-```dart
-final movement = Movement(
-  timestamp: DateTime.now(),
-  blockId: 'block_123',
-  transactionId: 'tx_456',
-  measurements: {'wallet_address': '0x123...', 'user_id': 'user_789'},
-  resources: {'amount': BigInt.one, 'points': BigInt.one},
-  direction: Direction.income,
-);
-```
+Название базы данных должно:
 
-### Получение данных
+- Не быть пустым
+- Начинаться с буквы (латинская буква)
+- Содержать только латинские буквы, цифры, символы '-' и '_'
 
-```dart
-final result = await db.query('reputation', 
-  filters: {'wallet_address': '0x123...'},
-  period: Period.day,
-  limit: 100
-);
-```
+Примеры допустимых имен:
+
+- `my_accounting_db`
+- `accounting-2025`
+- `Test123`
+- `a` (минимально допустимое имя)
+
+Примеры недопустимых имен:
+
+- `123my_db` (начинается с цифры)
+- `my@db` (содержит недопустимый символ '@')
+- `-my_db` (начинается с недопустимого символа '-')
+- `` (пустое имя)
 
 ## План разработки
 

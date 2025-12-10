@@ -611,7 +611,7 @@ void main() {
     
     test('Database creation should throw error for invalid directory path', () async {
       // Создаем временный файл для тестирования недопустимого пути
-      final tempFile = File('./temp_file_for_test.txt');
+      final tempFile = File('./db/temp_file_for_test.txt');
       await tempFile.create();
       
       // Пробуем использовать путь к файлу вместо каталога
@@ -647,6 +647,109 @@ void main() {
       expect(db.directoryPath, './db');
       expect(db.databaseName, 'test_valid_path');
       expect(db.tableType, TableType.balance);
+    });
+  });
+  group('Database Name Validation Tests', () {
+    setUp(() {
+      // Создаем директорию db перед тестами, если она не существует
+      Directory('./db').createSync(recursive: true);
+    });
+    
+    tearDown(() {
+      // Удаляем только созданные тестами базы данных
+      for (final dbName in createdDatabases) {
+        final dbDir = Directory('./db/$dbName');
+        if (dbDir.existsSync()) {
+          dbDir.deleteSync(recursive: true);
+        }
+      }
+      // Очищаем список созданных баз данных
+      createdDatabases.clear();
+    });
+    
+    test('Database creation should throw error for empty database name', () async {
+      // Пробуем создать базу данных с пустым названием
+      expect(
+        () async => await Database.createDatabase(
+          directoryPath: './db',
+          databaseName: '',
+          tableType: TableType.balance,
+          measurements: ['measurement1'],
+          resources: ['resource1'],
+        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', 'Название базы данных не может быть пустым')),
+      );
+    });
+    
+    test('Database creation should throw error for database name starting with digit', () async {
+      // Пробуем создать базу данных с названием, начинающимся с цифры
+      expect(
+        () async => await Database.createDatabase(
+          directoryPath: './db',
+          databaseName: '1test_db',
+          tableType: TableType.balance,
+          measurements: ['measurement1'],
+          resources: ['resource1'],
+        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', 'Название базы данных должно начинаться с буквы')),
+      );
+    });
+    
+    test('Database creation should throw error for database name starting with special character', () async {
+      // Пробуем создать базу данных с названием, начинающимся со специального символа
+      expect(
+        () async => await Database.createDatabase(
+          directoryPath: './db',
+          databaseName: '-test_db',
+          tableType: TableType.balance,
+          measurements: ['measurement1'],
+          resources: ['resource1'],
+        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', 'Название базы данных должно начинаться с буквы')),
+      );
+    });
+    
+    test('Database creation should throw error for database name with invalid characters', () async {
+      // Пробуем создать базу данных с названием, содержащим недопустимые символы
+      expect(
+        () async => await Database.createDatabase(
+          directoryPath: './db',
+          databaseName: 'test@db',
+          tableType: TableType.balance,
+          measurements: ['measurement1'],
+          resources: ['resource1'],
+        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', 'Название базы данных может содержать только латинские буквы, цифры, символы "-" и "_"')),
+      );
+    });
+    
+    test('Database creation should succeed with valid database name containing letters, digits, hyphens and underscores', () async {
+      // Тестируем различные допустимые названия баз данных
+      final validNames = [
+        'test_db',
+        'test-db',
+        'Test123',
+        'test_db_123',
+        'Test-DB-123',
+        'a', // минимально допустимое имя
+        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-', // максимально допустимое имя
+      ];
+      
+      for (final name in validNames) {
+        final db = await Database.createDatabase(
+          directoryPath: './db',
+          databaseName: name,
+          tableType: TableType.balance,
+          measurements: ['measurement1'],
+          resources: ['resource1'],
+        );
+        
+        // Добавляем созданную базу данных в список для последующего удаления
+        createdDatabases.add(name);
+        
+        // Проверяем, что база данных создана успешно
+        expect(db.databaseName, name);
+      }
     });
   });
 }

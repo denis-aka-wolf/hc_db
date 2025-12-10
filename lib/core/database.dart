@@ -100,9 +100,7 @@ class Database {
     required List<String> resources,
   }) async {
     await _validateDirectoryPath(directoryPath);
-    if (databaseName.isEmpty) {
-      throw ArgumentError('Название базы данных не может быть пустым');
-    }
+    await _validateDatabaseName(databaseName);
     if (measurements.isEmpty) {
       throw ArgumentError('Список измерений не может быть пустым');
     }
@@ -221,6 +219,32 @@ class Database {
       throw (e is ArgumentError) 
         ? e 
         : ArgumentError('Некорректный путь каталогу: $directoryPath (${e.toString()})');
+    }
+  }
+
+  /// Проверяет корректность названия базы данных
+  ///
+  /// Название базы данных должно:
+  /// - Не быть пустым
+  /// - Начинаться с буквы
+  /// - Содержать только латинские буквы, цифры, символы '-' и '_'
+  ///
+  /// @param databaseName название базы данных для проверки
+  /// @throws ArgumentError если название некорректно
+  static Future<void> _validateDatabaseName(String databaseName) async {
+    // Проверка на пустоту
+    if (databaseName.isEmpty) {
+      throw ArgumentError('Название базы данных не может быть пустым');
+    }
+    
+    // Проверка, что первым символом является буква
+    if (!RegExp(r'^[a-zA-Z]').hasMatch(databaseName)) {
+      throw ArgumentError('Название базы данных должно начинаться с буквы');
+    }
+    
+    // Проверка, что все символы соответствуют допустимым
+    if (!RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(databaseName)) {
+      throw ArgumentError('Название базы данных может содержать только латинские буквы, цифры, символы "-" и "_"');
     }
   }
 
