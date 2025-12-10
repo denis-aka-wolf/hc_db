@@ -257,6 +257,7 @@ final db = await Database.createDatabase(
 
 **Цель:** Реализация основных компонентов ядра СУБД
 
+[l] Реализация создания базы данных
 [] Реализация управления соединениями
 [] Механизмы транзакций с поддержкой ACID
 [] Управление памятью и кэшированием
@@ -368,6 +369,42 @@ import 'package:hc_db/hc_db.dart';
 final db = Database();
 await db.init();
 ```
+
+## Файловая структура базы данных
+
+HC Database создает следующую структуру файлов для каждой базы данных:
+
+- `{databaseName}.config` - файл конфигурации базы данных
+- `{databaseName}.movements` - файл для хранения таблицы движений
+- `{databaseName}.aggregations` - файл для хранения таблицы агрегаций (итогов)
+- `{databaseName}.turnovers` - файл для хранения таблицы оборотов (при необходимости)
+
+### Пример файла конфигурации
+
+При создании базы данных генерируется JSON-файл конфигурации, содержащий основные параметры:
+
+```json
+{
+ "databaseName": "my_accounting_db",
+  "tableType": "balance",
+  "measurements": ["wallet_address", "user_id"],
+  "resources": ["amount", "points"],
+  "createdAt": "2025-12-10T18:35:00.000Z",
+  "pageSize": 4096,
+  "extentSize": 65536,
+  "minReserveExtents": 10
+}
+```
+
+Параметры конфигурации:
+- `databaseName` - название базы данных
+- `tableType` - тип таблицы (balance, turnover, universal)
+- `measurements` - список измерений
+- `resources` - список ресурсов
+- `createdAt` - дата создания базы данных
+- `pageSize` - размер страницы в байтах
+- `extentSize` - размер экстента в байтах
+- `minReserveExtents` - минимальное количество зарезервированных экстентов
 
 ## Документация
 
