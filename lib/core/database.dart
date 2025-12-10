@@ -3,8 +3,6 @@ library;
 import 'dart:core';
 import 'dart:io';
 import 'dart:convert';
-import 'package:path/path.dart';
-
 import 'transaction.dart';
 import 'cache.dart';
 import '../tables/table_manager.dart';
@@ -107,6 +105,10 @@ class Database {
     if (resources.isEmpty) {
       throw ArgumentError('Список ресурсов не может быть пустым');
     }
+    
+    // Валидируем названия измерений и ресурсов
+    _validateMeasurementOrResourceNames(measurements, 'измерения');
+    _validateMeasurementOrResourceNames(resources, 'ресурсы');
 
     // Вызываем приватный конструктор
     final database = Database._createDatabase(
@@ -245,6 +247,47 @@ class Database {
     // Проверка, что все символы соответствуют допустимым
     if (!RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(databaseName)) {
       throw ArgumentError('Название базы данных может содержать только латинские буквы, цифры, символы "-" и "_"');
+    }
+  }
+
+  /// Проверяет корректность названия измерения или ресурса
+  ///
+  /// Название измерения или ресурса должно:
+  /// - Не быть пустым
+  /// - Начинаться с буквы
+  /// - Содержать только латинские буквы, цифры, символы '-' и '_'
+  ///
+  /// @param name название измерения или ресурса для проверки
+  /// @throws ArgumentError если название некорректно
+  static bool _isValidMeasurementOrResourceName(String name) {
+    // Проверка на пустоту
+    if (name.isEmpty) {
+      return false;
+    }
+    
+    // Проверка, что первым символом является буква
+    if (!RegExp(r'^[a-zA-Z]').hasMatch(name)) {
+      return false;
+    }
+    
+    // Проверка, что все символы соответствуют допустимым
+    if (!RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(name)) {
+      return false;
+    }
+    
+    return true;
+  }
+
+  /// Валидирует список названий измерений или ресурсов
+  ///
+  /// @param names список названий для валидации
+  /// @param type тип названий ('измерения' или 'ресурсы') для сообщений об ошибках
+  /// @throws ArgumentError если какие-либо названия некорректны
+  static void _validateMeasurementOrResourceNames(List<String> names, String type) {
+    for (final name in names) {
+      if (!_isValidMeasurementOrResourceName(name)) {
+        throw ArgumentError('Некорректное название $type: "$name". Название должно начинаться с буквы и содержать только латинские буквы, цифры, символы "-" и "_"');
+      }
     }
   }
 

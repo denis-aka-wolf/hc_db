@@ -752,4 +752,132 @@ void main() {
       }
     });
   });
+  
+  group('Measurement and Resource Name Validation Tests', () {
+    setUp(() {
+      // Создаем директорию db перед тестами, если она не существует
+      Directory('./db').createSync(recursive: true);
+    });
+    
+    tearDown(() {
+      // Удаляем только созданные тестами базы данных
+      for (final dbName in createdDatabases) {
+        final dbDir = Directory('./db/$dbName');
+        if (dbDir.existsSync()) {
+          dbDir.deleteSync(recursive: true);
+        }
+      }
+      // Очищаем список созданных баз данных
+      createdDatabases.clear();
+    });
+    
+    test('Database creation should succeed with valid measurement and resource names', () async {
+      // Тестируем различные допустимые названия измерений и ресурсов
+      final validMeasurements = [
+        'measurement1',
+        'resource_name',
+        'test-measurement',
+        'MyResource123',
+        'valid_name_123',
+        'test123',
+        'my-resource_test'
+      ];
+      
+      final validResources = [
+        'resource1',
+        'measurement_name',
+        'test-resource',
+        'MyMeasurement123',
+        'valid_name_123',
+        'test123',
+        'my-resource_test'
+      ];
+      
+      final db = await Database.createDatabase(
+        directoryPath: './db',
+        databaseName: 'test_valid_names',
+        tableType: TableType.balance,
+        measurements: validMeasurements,
+        resources: validResources,
+      );
+      
+      // Добавляем созданную базу данных в список для последующего удаления
+      createdDatabases.add('test_valid_names');
+      
+      // Проверяем, что база данных создана успешно
+      expect(db.databaseName, 'test_valid_names');
+      expect(db.measurements, validMeasurements);
+      expect(db.resources, validResources);
+    });
+    
+    test('Database creation should throw error for measurement name starting with digit', () async {
+      // Пробуем создать базу данных с названием измерения, начинающимся с цифры
+      expect(
+        () async => await Database.createDatabase(
+          directoryPath: './db',
+          databaseName: 'test_invalid_measurement_start',
+          tableType: TableType.balance,
+          measurements: ['123invalid', 'valid_measurement'],
+          resources: ['resource1', 'valid_resource'],
+        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', contains('Некорректное название измерения'))),
+      );
+    });
+    
+    test('Database creation should throw error for resource name starting with special character', () async {
+      // Пробуем создать базу данных с названием ресурса, начинающимся со специального символа
+      expect(
+        () async => await Database.createDatabase(
+          directoryPath: './db',
+          databaseName: 'test_invalid_resource_start',
+          tableType: TableType.balance,
+          measurements: ['measurement1', 'valid_measurement'],
+          resources: ['_invalid_resource', 'valid_resource'],
+        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', contains('Некорректное название ресурсы'))),
+      );
+    });
+    
+    test('Database creation should throw error for measurement name with invalid characters', () async {
+      // Пробуем создать базу данных с названием измерения, содержащим недопустимые символы
+      expect(
+        () async => await Database.createDatabase(
+          directoryPath: './db',
+          databaseName: 'test_invalid_measurement_chars',
+          tableType: TableType.balance,
+          measurements: ['valid_measurement', 'invalid.name'],
+          resources: ['resource1', 'valid_resource'],
+        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', contains('Некорректное название измерения'))),
+      );
+    });
+    
+    test('Database creation should throw error for resource name with spaces', () async {
+      // Пробуем создать базу данных с названием ресурса, содержащим пробелы
+      expect(
+        () async => await Database.createDatabase(
+          directoryPath: './db',
+          databaseName: 'test_invalid_resource_spaces',
+          tableType: TableType.balance,
+          measurements: ['measurement1', 'valid_measurement'],
+          resources: ['valid_resource', 'invalid resource'],
+        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', contains('Некорректное название ресурсы'))),
+      );
+    });
+    
+    test('Database creation should throw error for measurement name with special symbols', () async {
+      // Пробуем создать базу данных с названием измерения, содержащим специальные символы
+      expect(
+        () async => await Database.createDatabase(
+          directoryPath: './db',
+          databaseName: 'test_invalid_measurement_symbols',
+          tableType: TableType.balance,
+          measurements: ['valid_measurement', 'measurement@name'],
+          resources: ['resource1', 'valid_resource'],
+        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', contains('Некорректное название измерения'))),
+      );
+    });
+  });
 }
