@@ -99,32 +99,7 @@ class Database {
     required List<String> measurements,
     required List<String> resources,
   }) async {
-    // Проверка на пустоту
-    if (directoryPath.isEmpty) {
-      throw ArgumentError('Путь к каталогу не может быть пустым');
-    }
-    
-    // Проверка корректности пути и типа
-    try {
-      final directory = Directory(directoryPath);
-      
-      // Используем '!' для уверенности, что directory.exists() не вернет null,
-      // хотя в данном случае он возвращает Future<bool>.
-      if (!await directory.exists()) {
-        throw ArgumentError('Каталог не существует: $directoryPath');
-      }
-        
-      final stat = await directory.stat();
-      if (stat.type != FileSystemEntityType.directory) {
-        throw ArgumentError('Указанный путь не является каталогом: $directoryPath');
-      }
-    } catch (e) {
-      // Используем короткий оператор '??' для обработки типа исключения.
-      // Если 'e' является ArgumentError, перебрасываем 'e', иначе создаем новое.
-      throw (e is ArgumentError) 
-        ? e 
-        : ArgumentError('Некорректный путь каталогу: $directoryPath (${e.toString()})');
-    }
+    await _validateDirectoryPath(directoryPath);
     if (databaseName.isEmpty) {
       throw ArgumentError('Название базы данных не может быть пустым');
     }
@@ -208,6 +183,44 @@ class Database {
     } catch (e) {
       await transaction.rollback();
       rethrow;
+    }
+  }
+
+  /// Проверяет корректность пути к каталогу
+  /// 
+  /// Выполняет проверки:
+  /// - Путь не пустой
+  /// - Каталог существует
+  /// - Указанный путь является каталогом, а не файлом
+  /// 
+  /// @param directoryPath путь к каталогу для проверки
+  /// @throws ArgumentError если путь некорректный
+ static Future<void> _validateDirectoryPath(String directoryPath) async {
+    // Проверка на пустоту
+    if (directoryPath.isEmpty) {
+      throw ArgumentError('Путь к каталогу не может быть пустым');
+    }
+    
+    // Проверка корректности пути и типа
+    try {
+      final directory = Directory(directoryPath);
+      
+      // Используем '!' для уверенности, что directory.exists() не вернет null,
+      // хотя в данном случае он возвращает Future<bool>.
+      if (!await directory.exists()) {
+        throw ArgumentError('Каталог не существует: $directoryPath');
+      }
+        
+      final stat = await directory.stat();
+      if (stat.type != FileSystemEntityType.directory) {
+        throw ArgumentError('Указанный путь не является каталогом: $directoryPath');
+      }
+    } catch (e) {
+      // Используем короткий оператор '??' для обработки типа исключения.
+      // Если 'e' является ArgumentError, перебрасываем 'e', иначе создаем новое.
+      throw (e is ArgumentError) 
+        ? e 
+        : ArgumentError('Некорректный путь каталогу: $directoryPath (${e.toString()})');
     }
   }
 
