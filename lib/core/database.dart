@@ -3,6 +3,8 @@ library;
 import 'dart:core';
 import 'dart:io';
 import 'dart:convert';
+import 'package:path/path.dart';
+
 import 'transaction.dart';
 import 'cache.dart';
 import '../tables/table_manager.dart';
@@ -97,9 +99,31 @@ class Database {
     required List<String> measurements,
     required List<String> resources,
   }) async {
-    // Проверка входных параметров !!!Рефакторинг!!! добавить проверки
+    // Проверка на пустоту
     if (directoryPath.isEmpty) {
       throw ArgumentError('Путь к каталогу не может быть пустым');
+    }
+    
+    // Проверка корректности пути и типа
+    try {
+      final directory = Directory(directoryPath);
+      
+      // Используем '!' для уверенности, что directory.exists() не вернет null,
+      // хотя в данном случае он возвращает Future<bool>.
+      if (!await directory.exists()) {
+        throw ArgumentError('Каталог не существует: $directoryPath');
+      }
+        
+      final stat = await directory.stat();
+      if (stat.type != FileSystemEntityType.directory) {
+        throw ArgumentError('Указанный путь не является каталогом: $directoryPath');
+      }
+    } catch (e) {
+      // Используем короткий оператор '??' для обработки типа исключения.
+      // Если 'e' является ArgumentError, перебрасываем 'e', иначе создаем новое.
+      throw (e is ArgumentError) 
+        ? e 
+        : ArgumentError('Некорректный путь каталогу: $directoryPath (${e.toString()})');
     }
     if (databaseName.isEmpty) {
       throw ArgumentError('Название базы данных не может быть пустым');

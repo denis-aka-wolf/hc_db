@@ -562,4 +562,91 @@ void main() {
       expect(allHeaderMarkers.length == 0 ? 0 : allHeaderMarkers.length-1, 1, reason: 'Найдено несколько маркеров начала заголовка в файле после повторной инициализации');
     });
   });
+  
+  group('Directory Path Validation Tests', () {
+    setUp(() {
+      // Создаем директорию db перед тестами, если она не существует
+      Directory('./db').createSync(recursive: true);
+    });
+    
+    tearDown(() {
+      // Удаляем только созданные тестами базы данных
+      for (final dbName in createdDatabases) {
+        final dbDir = Directory('./db/$dbName');
+        if (dbDir.existsSync()) {
+          dbDir.deleteSync(recursive: true);
+        }
+      }
+      // Очищаем список созданных баз данных
+      createdDatabases.clear();
+    });
+    
+    test('Database creation should throw error for empty directory path', () async {
+      // Пробуем создать базу данных с пустым путем каталогу
+      expect(
+        () async => await Database.createDatabase(
+          directoryPath: '',
+          databaseName: 'test_empty_path',
+          tableType: TableType.balance,
+          measurements: ['measurement1'],
+          resources: ['resource1'],
+        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', 'Путь к каталогу не может быть пустым')),
+      );
+    });
+    
+    test('Database creation should throw error for non-existent directory path', () async {
+      // Пробуем создать базу данных с несуществующим путем к каталогу
+      expect(
+        () async => await Database.createDatabase(
+          directoryPath: './nonexistent/directory/path',
+          databaseName: 'test_nonexistent_path',
+          tableType: TableType.balance,
+          measurements: ['measurement1'],
+          resources: ['resource1'],
+        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', contains('Каталог не существует: ./nonexistent/directory/path'))),
+      );
+    });
+    
+    test('Database creation should throw error for invalid directory path', () async {
+      // Создаем временный файл для тестирования недопустимого пути
+      final tempFile = File('./temp_file_for_test.txt');
+      await tempFile.create();
+      
+      // Пробуем использовать путь к файлу вместо каталога
+      expect(
+        () async => await Database.createDatabase(
+          directoryPath: './temp_file_for_test.txt',
+          databaseName: 'test_invalid_path',
+          tableType: TableType.balance,
+          measurements: ['measurement1'],
+          resources: ['resource1'],
+        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', contains('Каталог не существует: ./temp_file_for_test.txt'))),
+      );
+      
+      // Удаляем временный файл
+      await tempFile.delete();
+    });
+    
+    test('Database creation should succeed with valid directory path', () async {
+      // Создаем базу данных с допустимым путем к каталогу
+      final db = await Database.createDatabase(
+        directoryPath: './db',
+        databaseName: 'test_valid_path',
+        tableType: TableType.balance,
+        measurements: ['measurement1'],
+        resources: ['resource1'],
+      );
+      
+      // Добавляем созданную базу данных в список для последующего удаления
+      createdDatabases.add('test_valid_path');
+      
+      // Проверяем, что база данных создана успешно
+      expect(db.directoryPath, './db');
+      expect(db.databaseName, 'test_valid_path');
+      expect(db.tableType, TableType.balance);
+    });
+  });
 }
