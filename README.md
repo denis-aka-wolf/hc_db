@@ -1,6 +1,6 @@
 # HC Database (HydraChain Database)
 
-Последнее изменение: 07.12.2025 00:34
+Последнее изменение: 10.12.2025 21:42
 
 ## Обзор
 
@@ -257,7 +257,6 @@ final db = await Database.createDatabase(
 
 **Цель:** Реализация основных компонентов ядра СУБД
 
-[l] Реализация создания базы данных
 [] Реализация управления соединениями
 [] Механизмы транзакций с поддержкой ACID
 [] Управление памятью и кэшированием
@@ -386,17 +385,18 @@ HC Database создает следующую структуру файлов д
 ```json
 {
  "databaseName": "my_accounting_db",
-  "tableType": "balance",
+ "tableType": "balance",
   "measurements": ["wallet_address", "user_id"],
   "resources": ["amount", "points"],
   "createdAt": "2025-12-10T18:35:00.000Z",
   "pageSize": 4096,
-  "extentSize": 65536,
+  "extentSize": 6536,
   "minReserveExtents": 10
 }
 ```
 
 Параметры конфигурации:
+
 - `databaseName` - название базы данных
 - `tableType` - тип таблицы (balance, turnover, universal)
 - `measurements` - список измерений
