@@ -1,6 +1,10 @@
 library;
 
 import '../imports.dart';
+import 'validation_service.dart';
+import 'config_manager.dart';
+import 'file_manager.dart';
+import 'table_manager_service.dart';
 
 class Database {
   // Обязательные свойства базы данных
@@ -86,7 +90,22 @@ class Database {
     // Настройка логирования в файл
     await _setupFileLogging();
     
-    await _initDatabase();
+    final fileManager = FileManager(
+      directoryPath: directoryPath,
+      databaseName: databaseName,
+      tableType: tableType,
+      measurements: measurements,
+      resources: resources,
+      logLevel: logLevel,
+      logFilePath: logFilePath,
+      maxLogFileSize: maxLogFileSize,
+      maxLogFilesCount: maxLogFilesCount,
+      pageSize: pageSize,
+      extentSize: extentSize,
+      minReserveExtents: minReserveExtents,
+    );
+    await fileManager.initDatabase();
+    
     _logger.fine('Инициализация компонентов');
     // Инициализация компонентов
     await _cache.init();
@@ -98,8 +117,8 @@ class Database {
     required String directoryPath,
     required String databaseName,
   }) async {
-    await _validateDirectoryPath(directoryPath);
-    await _validateDatabaseName(databaseName);
+    await ValidationService.validateDirectoryPath(directoryPath);
+    await ValidationService.validateDatabaseName(databaseName);
 
     TableType tableType = TableType.balance;
     List<String> measurements = [];
@@ -127,7 +146,7 @@ class Database {
       final configContent = await configFile.readAsString();
       final configData = jsonDecode(configContent);
 
-      tableType = _getTableTypeFromString(configData['tableType'] ?? 'balance');
+      tableType = ConfigManager.getTableTypeFromStringStatic(configData['tableType'] ?? 'balance');
       measurements = List<String>.from(configData['measurements'] ?? []);
       resources = List<String>.from(configData['resources'] ?? []);
       extentSize = configData['extentSize'] ?? 65536;
@@ -140,7 +159,7 @@ class Database {
         if (loggingConfig is Map<String, dynamic>) {
           if (loggingConfig.containsKey('level')) {
             String levelStr = loggingConfig['level'] as String? ?? 'INFO';
-            logLevel = _getLogLevelFromString(levelStr);
+            logLevel = ConfigManager.getLogLevelFromStringStatic(levelStr);
           }
           if (loggingConfig.containsKey('filePath')) {
             logFilePath = loggingConfig['filePath'] as String?;
@@ -201,7 +220,7 @@ class Database {
   /// @param databaseName - название базы данных
   /// @param tableType - тип таблицы
   /// @param measurements - список измерений
-  /// @param resources - список ресурсов
+ /// @param resources - список ресурсов
   /// @return Future<void> - асинхронная операция создания базы данных
   static Future<Database> createDatabase({
     required String directoryPath,
@@ -209,9 +228,9 @@ class Database {
     required TableType tableType,
     required List<String> measurements,
     required List<String> resources,
-  }) async {
-    await _validateDirectoryPath(directoryPath);
-    await _validateDatabaseName(databaseName);
+ }) async {
+    await ValidationService.validateDirectoryPath(directoryPath);
+    await ValidationService.validateDatabaseName(databaseName);
     if (measurements.isEmpty) {
       throw ArgumentError('Список измерений не может быть пустым');
     }
@@ -220,8 +239,8 @@ class Database {
     }
     
     // Валидируем названия измерений и ресурсов
-    _validateMeasurementOrResourceNames(measurements, 'измерения');
-    _validateMeasurementOrResourceNames(resources, 'ресурсы');
+    ValidationService.validateMeasurementOrResourceNames(measurements, 'измерения');
+    ValidationService.validateMeasurementOrResourceNames(resources, 'ресурсы');
 
     // Вызываем приватный конструктор
     final database = Database._createDatabase(
@@ -234,18 +253,51 @@ class Database {
 
     try {
       // Проверяем, существует ли уже такая база данных
-      if (await database._databaseExists()) {
+      final fileManager = FileManager(
+        directoryPath: database.directoryPath,
+        databaseName: database.databaseName,
+        tableType: database.tableType,
+        measurements: database.measurements,
+        resources: database.resources,
+        logLevel: database.logLevel,
+        logFilePath: database.logFilePath,
+        maxLogFileSize: database.maxLogFileSize,
+        maxLogFilesCount: database.maxLogFilesCount,
+        pageSize: database.pageSize,
+        extentSize: database.extentSize,
+        minReserveExtents: database.minReserveExtents,
+      );
+      
+      if (await fileManager.databaseExists()) {
         throw StateError('База данных "${database.databaseName}" уже существует');
       }
 
       // Создаем директорию базы данных
-      await database._createDatabaseDirectory();
+      await fileManager.createDatabaseDirectory();
 
       // Создаем файл конфигурации
-      await database._createConfigFile();
+      final configManager = ConfigManager(
+        directoryPath: database.directoryPath,
+        databaseName: database.databaseName,
+        tableType: database.tableType,
+        measurements: database.measurements,
+        resources: database.resources,
+        logLevel: database.logLevel,
+        logFilePath: database.logFilePath,
+        maxLogFileSize: database.maxLogFileSize,
+        maxLogFilesCount: database.maxLogFilesCount,
+      );
+      await configManager.createConfigFile();
 
       // Создаем таблицы
-      await database._createTables();
+      final tableManager = TableManagerService(
+        directoryPath: database.directoryPath,
+        databaseName: database.databaseName,
+        tableType: database.tableType,
+        measurements: database.measurements,
+        resources: database.resources,
+      );
+      await tableManager.createTables();
 
       _logger.info(
         'Создана база данных "${database.databaseName}" в каталоге "${database.directoryPath}"',
@@ -477,31 +529,48 @@ class Database {
   // Инициализация конкретной базы данных
   Future<void> _initDatabase() async {
     try {
-      // Читаем конфигурационный файл базы данных
-      final configPath =
-          '$databasePath/$databaseName.config';
-      final configFile = File(configPath);
-
-      if (!await configFile.exists()) {
-        _logger.warning('Конфигурационный файл не найден: $configPath');
-        return;
+      final configManager = ConfigManager.fromExisting(
+        directoryPath: directoryPath,
+        databaseName: databaseName,
+        tableType: tableType,
+        measurements: measurements,
+        resources: resources,
+        databasePath: databasePath,
+        pageSize: pageSize,
+        extentSize: extentSize,
+        minReserveExtents: minReserveExtents,
+        logLevel: logLevel,
+        logFilePath: logFilePath,
+        maxLogFileSize: maxLogFileSize,
+        maxLogFilesCount: maxLogFilesCount,
+      );
+      
+      final configData = await configManager.loadConfiguration();
+      if (configData != null) {
+        _logger.info('Инициализация базы данных: $databasePath');
+        _logger.info(
+          'Параметры СУБД - Размер страницы: ${configData['pageSize'] ?? 4096} байт, Размер экстента: ${configData['extentSize'] ?? 65536} байт, Мин. зарезервированные экстенты: ${configData['minReserveExtents'] ?? 10}',
+        );
+      } else {
+        _logger.warning('Конфигурационный файл не найден или пуст');
       }
 
-      final configContent = await configFile.readAsString();
-      final configData = jsonDecode(configContent);
-
-      // Читаем параметры СУБД
-      final pageSize = configData['pageSize'] ?? 4096;
-      final extentSize = configData['extentSize'] ?? 65536;
-      final minReserveExtents = configData['minReserveExtents'] ?? 10;
-
-      _logger.info('Инициализация базы данных: $databasePath');
-      _logger.info(
-        'Параметры СУБД - Размер страницы: $pageSize байт, Размер экстента: $extentSize байт, Мин. зарезервированные экстенты: $minReserveExtents',
-      );
-
       // Размечаем файлы под базу данных
-      await _allocateDatabaseFiles();
+      final fileManager = FileManager(
+        directoryPath: directoryPath,
+        databaseName: databaseName,
+        tableType: tableType,
+        measurements: measurements,
+        resources: resources,
+        logLevel: logLevel,
+        logFilePath: logFilePath,
+        maxLogFileSize: maxLogFileSize,
+        maxLogFilesCount: maxLogFilesCount,
+        pageSize: pageSize,
+        extentSize: extentSize,
+        minReserveExtents: minReserveExtents,
+      );
+      await fileManager.allocateDatabaseFiles();
 
       _logger.info('База данных инициализирована успешно');
     } catch (error, stackTrace) {
