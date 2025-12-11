@@ -1,6 +1,6 @@
 # HC Database (HydraChain Database)
 
-Последнее изменение: 10.12.2025 21:42
+Последнее изменение: 11.12.2025 06:29
 
 ## Обзор
 
@@ -186,13 +186,34 @@ import 'package:hc_db/hc_db.dart';
 
 // Создание базы данных
 final db = await Database.createDatabase(
-  directoryPath: './my_database',
+ directoryPath: './my_database',
   databaseName: 'my_accounting_db',
   tableType: TableType.balance,
   measurements: ['wallet_address', 'user_id'],
   resources: ['amount', 'points'],
 );
 ```
+
+### Открытие существующей базы данных
+
+Метод `Database.open()` позволяет открыть уже существующую базу данных. По указанному пути `directoryPath` должна находиться папка, содержащая подпапку с названием базы данных и соответствующими файлами базы данных.
+
+```dart
+import 'package:hc_db/hc_db.dart';
+
+// Открытие существующей базы данных
+final db = await Database.open(
+  directoryPath: './my_database',
+  databaseName: 'my_accounting_db',
+);
+```
+
+При открытии базы данных система автоматически:
+
+- Проверяет существование базы данных по указанному пути
+- Считывает конфигурационный файл для восстановления параметров базы данных
+- Восстанавливает тип таблицы, измерения и ресурсы из конфигурации
+- Инициализирует все необходимые компоненты базы данных
 
 #### Правила именования базы данных
 

@@ -48,20 +48,18 @@ class Database {
        extentSize = 65536,
        minReserveExtents = 10;
 
-  // Конструктор для открытия базы данных по имени из config файла
-  // Пока в качестве заглушки - для открытия БД по имени
-  // необходим так-же конструктор по пути и по пути и имени
-  Database.openFromName({
+  // Приватный конструктор для открытия существующей базы данных с параметрами из конфига
+  Database._openDatabase({
+    required this.directoryPath,
     required this.databaseName,
-  }) : directoryPath = '.',
-       tableType = TableType.balance, // значение по умолчанию, будет перезаписано из config
-       measurements = [],
-       resources = [],
-       assert(databaseName.isNotEmpty),
-       databasePath = './$databaseName',
-       pageSize = 4096,
-       extentSize = 65536,
-       minReserveExtents = 10;
+    required this.tableType,
+    required this.measurements,
+    required this.resources,
+    required this.databasePath,
+    required this.pageSize,
+    required this.extentSize,
+    required this.minReserveExtents
+  });
 
   // Получение менеджера транзакций
   TransactionManager get transactionManager => _transactionManager;
@@ -78,6 +76,79 @@ class Database {
     // Инициализация компонентов
     await _cache.init();
     _logger.info('База данных инициализирована');
+  }
+
+  // Метод для открытия существующей базы данных
+ static Future<Database> open({
+    required String directoryPath,
+    required String databaseName,
+  }) async {
+    await _validateDirectoryPath(directoryPath);
+    await _validateDatabaseName(databaseName);
+
+    TableType tableType = TableType.balance;
+    List<String> measurements = [];
+    List<String> resources = [];
+    String databasePath = '$directoryPath/$databaseName';
+    int pageSize = 4096;
+    int extentSize = 65536;
+    int minReserveExtents = 10;
+
+    // Проверяем, существует ли база данных
+    final dbDir = Directory(databasePath);
+    if (!await dbDir.exists()) {
+      throw StateError('База данных "$databaseName" не существует в каталоге "$directoryPath"');
+    }
+
+    // Читаем конфигурационный файл для получения параметров
+    final configPath = '$databasePath/$databaseName.config';
+    final configFile = File(configPath);
+
+    if (await configFile.exists()) {
+      final configContent = await configFile.readAsString();
+      final configData = jsonDecode(configContent);
+
+      tableType = _getTableTypeFromString(configData['tableType'] ?? 'balance');
+      measurements = List<String>.from(configData['measurements'] ?? []);
+      resources = List<String>.from(configData['resources'] ?? []);
+      extentSize = configData['extentSize'] ?? 65536;
+      minReserveExtents = configData['minReserveExtents'] ?? 10;
+      pageSize = configData['pageSize'] ?? 4096;
+    }
+
+    // Создаем экземпляр базы данных с параметрами из конфига
+    final database = Database._openDatabase(
+      directoryPath: directoryPath,
+      databaseName: databaseName,
+      tableType: tableType,
+      measurements: measurements,
+      resources: resources,
+      databasePath: databasePath,
+      extentSize: extentSize,
+      minReserveExtents: minReserveExtents,
+      pageSize: pageSize 
+    );
+
+    try {
+      // Инициализация базы данных
+      await database.init();
+
+      _logger.info(
+        'Открыта база данных "${database.databaseName}" из каталога "${database.directoryPath}"',
+      );
+      _logger.info('Тип таблицы: ${database.tableType}');
+      _logger.info('Измерения: ${database.measurements}');
+      _logger.info('Ресурсы: ${database.resources}');
+
+      return database;
+    } catch (error, stackTrace) {
+      _logger.severe(
+        'Ошибка при открытии базы данных "$databaseName": $error',
+        error,
+        stackTrace,
+      );
+      rethrow;
+    }
   }
 
   // Публичный статический асинхронный фабричный метод
@@ -183,6 +254,45 @@ class Database {
     } catch (e) {
       await transaction.rollback();
       rethrow;
+    }
+  }
+
+  // Загрузка конфигурации из файла
+  Future<void> _loadConfiguration() async {
+    try {
+      final configPath = '$databasePath/$databaseName.config';
+      final configFile = File(configPath);
+
+      if (!await configFile.exists()) {
+        _logger.warning('Конфигурационный файл не найден: $configPath');
+        return;
+      }
+
+      final configContent = await configFile.readAsString();
+      final configData = jsonDecode(configContent);
+
+      _logger.info('Конфигурация загружена из файла: $configPath');
+    } catch (error, stackTrace) {
+      _logger.severe(
+        'Ошибка при загрузке конфигурации: $error',
+        error,
+        stackTrace,
+      );
+      rethrow;
+    }
+  }
+
+  // Вспомогательный метод для преобразования строки в TableType
+  static TableType _getTableTypeFromString(String typeString) {
+    switch (typeString) {
+      case 'TableType.balance':
+        return TableType.balance;
+      case 'TableType.turnover':
+        return TableType.turnover;
+      case 'TableType.universal':
+        return TableType.universal;
+      default:
+        return TableType.balance;
     }
   }
 

@@ -880,4 +880,172 @@ void main() {
       );
     });
   });
+  
+  group('Database Open Tests', () {
+    setUp(() {
+      // Создаем директорию db перед тестами, если она не существует
+      Directory('./db').createSync(recursive: true);
+    });
+    
+    tearDown(() {
+      // Удаляем только созданные тестами базы данных
+      for (final dbName in createdDatabases) {
+        final dbDir = Directory('./db/$dbName');
+        if (dbDir.existsSync()) {
+          dbDir.deleteSync(recursive: true);
+        }
+      }
+      // Очищаем список созданных баз данных
+      createdDatabases.clear();
+    });
+    
+    test('Database should be opened successfully from existing database', () async {
+      // Сначала создаем базу данных
+      final originalDb = await Database.createDatabase(
+        directoryPath: './db',
+        databaseName: 'test_open_db',
+        tableType: TableType.balance,
+        measurements: ['measurement1'],
+        resources: ['resource1'],
+      );
+      
+      // Добавляем созданную базу данных в список для последующего удаления
+      createdDatabases.add('test_open_db');
+      
+      // Проверяем, что свойства оригинальной базы данных установлены правильно
+      expect(originalDb.directoryPath, './db');
+      expect(originalDb.databaseName, 'test_open_db');
+      expect(originalDb.tableType, TableType.balance);
+      expect(originalDb.measurements, ['measurement1']);
+      expect(originalDb.resources, ['resource1']);
+      
+      // Закрываем соединение с оригинальной базой данных (если нужно)
+      // Затем открываем существующую базу данных
+      final openedDb = await Database.open(
+        directoryPath: './db',
+        databaseName: 'test_open_db',
+      );
+      
+      // Проверяем, что открытая база данных имеет правильные свойства
+      expect(openedDb.directoryPath, './db');
+      expect(openedDb.databaseName, 'test_open_db');
+      expect(openedDb.tableType, TableType.balance);
+      expect(openedDb.measurements, ['measurement1']);
+      expect(openedDb.resources, ['resource1']);
+    });
+    
+    test('Database open should throw error for non-existent database', () async {
+      // Пробуем открыть несуществующую базу данных
+      expect(
+        () async => await Database.open(
+          directoryPath: './db',
+          databaseName: 'nonexistent_db',
+        ),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('не существует'))),
+      );
+    });
+    
+    test('Database open should preserve table type from config', () async {
+      // Создаем базу данных с типом turnover
+      final originalDb = await Database.createDatabase(
+        directoryPath: './db',
+        databaseName: 'test_open_turnover',
+        tableType: TableType.turnover,
+        measurements: ['measurement1', 'measurement2'],
+        resources: ['resource1', 'resource2'],
+      );
+      
+      // Добавляем созданную базу данных в список для последующего удаления
+      createdDatabases.add('test_open_turnover');
+      
+      // Проверяем, что оригинальная база данных имеет правильный тип
+      expect(originalDb.tableType, TableType.turnover);
+      
+      // Открываем базу данных
+      final openedDb = await Database.open(
+        directoryPath: './db',
+        databaseName: 'test_open_turnover',
+      );
+      
+      // Проверяем, что тип таблицы сохранился
+      expect(openedDb.tableType, TableType.turnover);
+    });
+    
+    test('Database open should preserve measurements and resources from config', () async {
+      // Создаем базу данных с определенными измерениями и ресурсами
+      final measurements = ['measurement1', 'measurement2', 'measurement3'];
+      final resources = ['resource1', 'resource2'];
+      
+      final originalDb = await Database.createDatabase(
+        directoryPath: './db',
+        databaseName: 'test_open_params',
+        tableType: TableType.universal,
+        measurements: measurements,
+        resources: resources,
+      );
+      
+      // Добавляем созданную базу данных в список для последующего удаления
+      createdDatabases.add('test_open_params');
+      
+      // Проверяем, что оригинальная база данных имеет правильные параметры
+      expect(originalDb.measurements, measurements);
+      expect(originalDb.resources, resources);
+      
+      // Открываем базу данных
+      final openedDb = await Database.open(
+        directoryPath: './db',
+        databaseName: 'test_open_params',
+      );
+      
+      // Проверяем, что измерения и ресурсы сохранились
+      expect(openedDb.measurements, measurements);
+      expect(openedDb.resources, resources);
+    });
+    
+    test('Database open should throw error for empty directory path', () async {
+      expect(
+        () async => await Database.open(
+          directoryPath: '',
+          databaseName: 'test_db',
+        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', 'Путь к каталогу не может быть пустым')),
+      );
+    });
+    
+    test('Database open should throw error for empty database name', () async {
+      expect(
+        () async => await Database.open(
+          directoryPath: './db',
+          databaseName: '',
+        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', 'Название базы данных не может быть пустым')),
+      );
+    });
+    
+    test('Database open should work with universal table type', () async {
+      // Создаем базу данных с универсальным типом
+      final originalDb = await Database.createDatabase(
+        directoryPath: './db',
+        databaseName: 'test_open_universal',
+        tableType: TableType.universal,
+        measurements: ['measurement1'],
+        resources: ['resource1', 'resource2'],
+      );
+      
+      // Добавляем созданную базу данных в список для последующего удаления
+      createdDatabases.add('test_open_universal');
+      
+      // Проверяем, что оригинальная база данных имеет правильный тип
+      expect(originalDb.tableType, TableType.universal);
+      
+      // Открываем базу данных
+      final openedDb = await Database.open(
+        directoryPath: './db',
+        databaseName: 'test_open_universal',
+      );
+      
+      // Проверяем, что тип таблицы сохранился
+      expect(openedDb.tableType, TableType.universal);
+    });
+  });
 }
