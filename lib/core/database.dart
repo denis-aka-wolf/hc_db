@@ -17,16 +17,16 @@ class Database {
   final int pageSize;
   final int extentSize;
   final int minReserveExtents;
-  
+
   // Параметры логирования
- final Level logLevel;
+  final Level logLevel;
   final String? logFilePath;
   final int maxLogFileSize; // в байтах
   final int maxLogFilesCount; // количество файлов для ротации
 
   // Логгер
   static final Logger _logger = Logger('Database');
-  
+
   // Менеджер логирования
   DatabaseLogger? _databaseLogger;
 
@@ -47,7 +47,7 @@ class Database {
     required this.measurements,
     required this.resources,
     this.logLevel = Level.INFO,
-    this.logFilePath,
+    logFilePath,
     this.maxLogFileSize = 10485760, // 10MB
     this.maxLogFilesCount = 5,
   }) : assert(directoryPath.isNotEmpty),
@@ -55,6 +55,9 @@ class Database {
        assert(measurements.isNotEmpty),
        assert(resources.isNotEmpty),
        databasePath = '$directoryPath/$databaseName',
+       this.logFilePath = (logFilePath == null || logFilePath.isEmpty)
+           ? '$directoryPath/$databaseName/logs/database.log'
+           : logFilePath,
        pageSize = 4096,
        extentSize = 65536,
        minReserveExtents = 10;
@@ -73,7 +76,7 @@ class Database {
     required this.logLevel,
     required this.logFilePath,
     required this.maxLogFileSize,
-    required this.maxLogFilesCount
+    required this.maxLogFilesCount,
   });
 
   // Получение менеджера транзакций
@@ -86,10 +89,10 @@ class Database {
   Future<void> init() async {
     _logger.fine('Метод init вызван с databasePath: $databasePath');
     _logger.fine('Вызов _initDatabase с $databasePath');
-    
+
     // Настройка логирования в файл
     await _setupFileLogging();
-    
+
     final fileManager = FileManager(
       directoryPath: directoryPath,
       databaseName: databaseName,
@@ -105,7 +108,7 @@ class Database {
       minReserveExtents: minReserveExtents,
     );
     await fileManager.initDatabase();
-    
+
     _logger.fine('Инициализация компонентов');
     // Инициализация компонентов
     await _cache.init();
@@ -135,7 +138,9 @@ class Database {
     // Проверяем, существует ли база данных
     final dbDir = Directory(databasePath);
     if (!await dbDir.exists()) {
-      throw StateError('База данных "$databaseName" не существует в каталоге "$directoryPath"');
+      throw StateError(
+        'База данных "$databaseName" не существует в каталоге "$directoryPath"',
+      );
     }
 
     // Читаем конфигурационный файл для получения параметров
@@ -146,13 +151,15 @@ class Database {
       final configContent = await configFile.readAsString();
       final configData = jsonDecode(configContent);
 
-      tableType = ConfigManager.getTableTypeFromStringStatic(configData['tableType'] ?? 'balance');
+      tableType = ConfigManager.getTableTypeFromStringStatic(
+        configData['tableType'] ?? 'balance',
+      );
       measurements = List<String>.from(configData['measurements'] ?? []);
       resources = List<String>.from(configData['resources'] ?? []);
       extentSize = configData['extentSize'] ?? 65536;
       minReserveExtents = configData['minReserveExtents'] ?? 10;
       pageSize = configData['pageSize'] ?? 4096;
-      
+
       // Параметры логирования
       if (configData.containsKey('logging')) {
         final loggingConfig = configData['logging'];
@@ -173,7 +180,7 @@ class Database {
         }
       }
     }
-    
+
     // Создаем экземпляр базы данных с параметрами из конфига
     final database = Database._openDatabase(
       directoryPath: directoryPath,
@@ -188,7 +195,7 @@ class Database {
       logLevel: logLevel,
       logFilePath: logFilePath,
       maxLogFileSize: maxLogFileSize,
-      maxLogFilesCount: maxLogFilesCount
+      maxLogFilesCount: maxLogFilesCount,
     );
 
     try {
@@ -220,7 +227,7 @@ class Database {
   /// @param databaseName - название базы данных
   /// @param tableType - тип таблицы
   /// @param measurements - список измерений
- /// @param resources - список ресурсов
+  /// @param resources - список ресурсов
   /// @return Future<void> - асинхронная операция создания базы данных
   static Future<Database> createDatabase({
     required String directoryPath,
@@ -228,7 +235,7 @@ class Database {
     required TableType tableType,
     required List<String> measurements,
     required List<String> resources,
- }) async {
+  }) async {
     await ValidationService.validateDirectoryPath(directoryPath);
     await ValidationService.validateDatabaseName(databaseName);
     if (measurements.isEmpty) {
@@ -237,9 +244,12 @@ class Database {
     if (resources.isEmpty) {
       throw ArgumentError('Список ресурсов не может быть пустым');
     }
-    
+
     // Валидируем названия измерений и ресурсов
-    ValidationService.validateMeasurementOrResourceNames(measurements, 'измерения');
+    ValidationService.validateMeasurementOrResourceNames(
+      measurements,
+      'измерения',
+    );
     ValidationService.validateMeasurementOrResourceNames(resources, 'ресурсы');
 
     // Вызываем приватный конструктор
@@ -267,9 +277,11 @@ class Database {
         extentSize: database.extentSize,
         minReserveExtents: database.minReserveExtents,
       );
-      
+
       if (await fileManager.databaseExists()) {
-        throw StateError('База данных "${database.databaseName}" уже существует');
+        throw StateError(
+          'База данных "${database.databaseName}" уже существует',
+        );
       }
 
       // Создаем директорию базы данных
@@ -359,15 +371,15 @@ class Database {
       maxLogFileSize: maxLogFileSize,
       maxLogFilesCount: maxLogFilesCount,
     );
-    
+
     await _databaseLogger!.setupFileLogging();
   }
 
   /// Закрывает логирование и освобождает ресурсы
   Future<void> closeLogging() async {
     await _databaseLogger?.closeLogging();
- }
-   
+  }
+
   // Закрывает все соединения и освобождает ресурсы базы данных
   Future<void> close() async {
     // Закрываем все соединения
@@ -377,10 +389,10 @@ class Database {
       }
     }
     _connections.clear();
-    
+
     // Закрываем логирование
     await closeLogging();
-    
+
     _logger.info('База данных закрыта');
   }
- }
+}

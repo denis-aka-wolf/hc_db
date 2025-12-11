@@ -39,7 +39,8 @@ void main() {
       
       // Проверяем, что база данных была создана с настройками логирования по умолчанию
       expect(database.logLevel, equals(Level.INFO));
-      expect(database.logFilePath, isNull); // По умолчанию путь к логу не задан
+      expect(database.logFilePath, isNotNull); // Теперь путь к логу задан по умолчанию
+      expect(database.logFilePath, equals('$testDir/$testDbName/logs/database.log'));
       
       // Закрываем логирование
       await database.closeLogging();
