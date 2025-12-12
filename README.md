@@ -1,6 +1,6 @@
 # HC Database (HydraChain Database)
 
-Последнее изменение: 12.12.2025 04:15
+Последнее изменение: 12.12.2025 04:25
 
 ## Обзор
 
@@ -124,6 +124,35 @@ final movement = Movement(
 await movementTable.insertMovement(movement);
 ```
 
+#### Вставка множества движений (батч)
+
+Для вставки большого количества движений в одной транзакции используется метод `insertMovementsBatch()`. Это позволяет эффективно добавлять большое количество строк за один раз:
+
+```dart
+// Создание списка движений
+List<Movement> movements = [];
+for (int i = 0; i < 1000; i++) {
+  movements.add(Movement(
+    movementId: 'M${i.toString().padLeft(6, '0')}',
+    timestamp: DateTime.now().add(Duration(seconds: i)),
+    blockId: 'B001',
+    transactionId: 'T${i.toString().padLeft(6, '0')}',
+    measurements: {
+      'product': 'Product ${(i % 10)}',
+      'region': 'Region ${(i % 5)}',
+    },
+    resources: {
+      'quantity': BigInt.from(10 + i),
+      'amount': BigInt.from(100 + i * 10),
+    },
+    direction: i % 2 == 0 ? Direction.income : Direction.expense,
+  ));
+}
+
+// Вставка всех движений в одной транзакции
+await movementTable.insertMovementsBatch(movements);
+```
+
 #### Получение движений
 
 Для получения движений используется метод `getMovements()` класса `MovementTable`, который позволяет фильтровать данные по различным критериям:
@@ -230,7 +259,7 @@ List<Movement> combinedFilteredMovements = await movementTable.getMovements(
 
 ## Структура проекта
 
-```
+```sh
 hc_db/
 ├── lib/
 │   ├── core/
