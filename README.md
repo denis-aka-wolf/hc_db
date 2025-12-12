@@ -1,6 +1,6 @@
 # HC Database (HydraChain Database)
 
-Последнее изменение: 11.12.2025 08:52
+Последнее изменение: 12.12.2025 04:15
 
 ## Обзор
 
@@ -80,6 +80,87 @@ HC Database (HydraChain Database) - это встраиваемая систем
 - `measurements`: Измерения (определяются разработчиком)
 - `resources`: Ресурсы (определяются разработчиком)
 - `direction`: Направление движения (enum: income/expense)
+
+#### Вставка движений
+
+Для вставки движений используется метод `insertMovement()` класса `MovementTable`. Пример:
+
+```dart
+import 'package:hc_db/hc_db.dart';
+
+// Создание базы данных
+final db = await Database.createDatabase(
+  directoryPath: './my_database',
+  databaseName: 'my_accounting_db',
+  tableType: TableType.balance,
+  measurements: ['product', 'region'],
+  resources: ['quantity', 'amount'],
+);
+
+// Получение схемы таблицы
+final tableSchema = db.getTableSchema('my_accounting_db');
+
+// Создание таблицы движений
+final movementTable = MovementTable(db, tableSchema);
+
+// Создание движения
+final movement = Movement(
+  movementId: 'M001',
+  timestamp: DateTime.now(),
+  blockId: 'B001',
+  transactionId: 'T001',
+  measurements: {
+    'product': 'Product A',
+    'region': 'Region 1',
+  },
+  resources: {
+    'quantity': BigInt.from(100),
+    'amount': BigInt.from(1000),
+  },
+  direction: Direction.income,
+);
+
+// Вставка движения
+await movementTable.insertMovement(movement);
+```
+
+#### Получение движений
+
+Для получения движений используется метод `getMovements()` класса `MovementTable`, который позволяет фильтровать данные по различным критериям:
+
+```dart
+// Получение всех движений
+List<Movement> allMovements = await movementTable.getMovements();
+
+// Получение движений с фильтрацией по измерениям
+List<Movement> filteredMovements = await movementTable.getMovements(
+  measurementsFilter: {
+    'product': 'Product A',
+    'region': 'Region 1',
+  },
+);
+
+// Получение движений с фильтрацией по времени
+List<Movement> timeFilteredMovements = await movementTable.getMovements(
+  fromTime: DateTime(2023, 1),
+  toTime: DateTime(2023, 12, 31),
+);
+
+// Ограничение количества возвращаемых движений
+List<Movement> limitedMovements = await movementTable.getMovements(
+  limit: 100,
+);
+
+// Комбинированный фильтр
+List<Movement> combinedFilteredMovements = await movementTable.getMovements(
+  measurementsFilter: {
+    'product': 'Product A',
+  },
+  fromTime: DateTime(2023, 1, 1),
+  toTime: DateTime(2023, 12, 31),
+  limit: 50,
+);
+```
 
 ### Таблицы итогов (Aggregations)
 
