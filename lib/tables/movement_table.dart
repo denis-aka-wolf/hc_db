@@ -301,7 +301,7 @@ class MovementTable {
     );
   }
 
-  // Вставка движения
+  // Вставка одного движения
   Future<void> insertMovement(Movement movement) async {
     // Валидация данных
     _validateMovement(movement);
@@ -312,6 +312,22 @@ class MovementTable {
     print('Добавлено движение: ${movement.movementId}');
     
     // Записываем обновленные данные в файл
+    await _dataAreaManager.writeDataArea(_movements);
+  }
+  
+  // Вставка множества движений в одной транзакции
+  Future<void> insertMovementsBatch(List<Movement> movements) async {
+    // Валидация всех движений перед вставкой
+    for (final movement in movements) {
+      _validateMovement(movement);
+    }
+    
+    // Добавление всех движений в память
+    _movements.addAll(movements);
+    
+    print('Добавлено ${movements.length} движений в батче');
+    
+    // Записываем обновленные данные в файл единовременно
     await _dataAreaManager.writeDataArea(_movements);
   }
 
