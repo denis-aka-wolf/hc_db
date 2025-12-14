@@ -159,25 +159,62 @@ Future<void> readAllMovements(MovementTable movementTable) async {
     return;
   }
   
-  print('\n=== Все записи в виде таблицы ===');
-  // Заголовок таблицы
-  print('${'ID'.padRight(15)} | ${'Timestamp'.padRight(20)} | ${'Product'.padRight(15)} | ${'Region'.padRight(12)} | ${'Category'.padRight(12)} | ${'Quantity'.padRight(12)} | ${'Amount'.padRight(12)} | ${'Direction'.padRight(12)}');
-  print('-' * 130);
+  int pageSize = 25;
+  int currentPage = 0;
   
- // Данные таблицы
-  for (Movement movement in movements) {
-    print(
-      '${movement.movementId.padRight(15)} | '
-      '${movement.timestamp.toIso8601String().substring(0, 19).padRight(20)} | '
-      '${movement.measurements['product']?.padRight(15) ?? ''.padRight(15)} | '
-      '${movement.measurements['region']?.padRight(12) ?? ''.padRight(12)} | '
-      '${movement.measurements['category']?.padRight(12) ?? ''.padRight(12)} | '
-      '${movement.resources['quantity']?.toString().padRight(12) ?? ''.padRight(12)} | '
-      '${movement.resources['amount']?.toString().padRight(12) ?? ''.padRight(12)} | '
-      '${movement.direction.toString().split('.').last.padRight(12)}'
-    );
+  while (true) {
+    int startIndex = currentPage * pageSize;
+    int endIndex = (startIndex + pageSize < movements.length) ? startIndex + pageSize : movements.length;
+    
+    List<Movement> pageMovements = movements.sublist(startIndex, endIndex);
+    
+    print('\n=== Записи ${startIndex + 1} - ${endIndex} из ${movements.length} ===');
+    // Заголовок таблицы
+    print('${'ID'.padRight(15)} | ${'Timestamp'.padRight(20)} | ${'Product'.padRight(15)} | ${'Region'.padRight(12)} | ${'Category'.padRight(12)} | ${'Quantity'.padRight(12)} | ${'Amount'.padRight(12)} | ${'Direction'.padRight(12)}');
+    print('-' * 130);
+    
+    // Данные таблицы
+    for (Movement movement in pageMovements) {
+      print(
+        '${movement.movementId.padRight(15)} | '
+        '${movement.timestamp.toIso8601String().substring(0, 19).padRight(20)} | '
+        '${movement.measurements['product']?.padRight(15) ?? ''.padRight(15)} | '
+        '${movement.measurements['region']?.padRight(12) ?? ''.padRight(12)} | '
+        '${movement.measurements['category']?.padRight(12) ?? ''.padRight(12)} | '
+        '${movement.resources['quantity']?.toString().padRight(12) ?? ''.padRight(12)} | '
+        '${movement.resources['amount']?.toString().padRight(12) ?? ''.padRight(12)} | '
+        '${movement.direction.toString().split('.').last.padRight(12)}'
+      );
+    }
+    
+    print('\nСтраница ${currentPage + 1} из ${(movements.length / pageSize).ceil()}');
+    
+    if (movements.length <= pageSize) {
+      print('\nВсего записей: ${movements.length}');
+      break;
+    }
+    
+    print('\nУправление: [N] - следующие 25, [P] - предыдущие 25, [Q] - выход');
+    String? input = stdin.readLineSync()?.toUpperCase();
+    
+    if (input == 'N' || input == 'NEXT') {
+      if (endIndex < movements.length) {
+        currentPage++;
+      } else {
+        print('Больше нет записей для отображения.');
+      }
+    } else if (input == 'P' || input == 'PREV' || input == 'PREVIOUS') {
+      if (currentPage > 0) {
+        currentPage--;
+      } else {
+        print('Это первая страница.');
+      }
+    } else if (input == 'Q' || input == 'QUIT' || input == 'EXIT') {
+      break;
+    } else {
+      print('Неверная команда. Используйте N, P или Q.');
+    }
   }
-  print('\nВсего записей: ${movements.length}');
 }
 
 Movement generateRandomMovement() {
