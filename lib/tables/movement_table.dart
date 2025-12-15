@@ -6,20 +6,33 @@ import 'dart:io';
 import '../core/database.dart';
 import 'table_manager.dart';
 
-// Направление движения
+/// Направление движения
 enum Direction {
   income,   // Приход
   expense,  // Расход
 }
 
-// Структура движения
+/// Структура движения - представляет собой финансовую или материальную операцию
 class Movement {
+  /// Уникальный идентификатор движения
   final String movementId;
+  
+  /// Временная метка операции
   final DateTime timestamp;
+  
+  /// Идентификатор блока данных
   final String blockId;
+  
+  /// Идентификатор транзакции
   final String transactionId;
+  
+  /// Измерения (характеристики) движения
   final Map<String, String> measurements;
+  
+  /// Ресурсы (количественные показатели) движения
   final Map<String, BigInt> resources;
+  
+  /// Направление движения: приход или расход
   final Direction direction;
 
   Movement({
@@ -32,7 +45,7 @@ class Movement {
     required this.direction,
   });
 
-  // Преобразование в мапу для хранения
+  /// Преобразование в мапу для хранения
   Map<String, dynamic> toMap() {
     return {
       'movementId': movementId,
@@ -41,29 +54,47 @@ class Movement {
       'transactionId': transactionId,
       'measurements': measurements,
       'resources': resources.map((key, value) => MapEntry(key, value.toString())),
-      'direction': direction.toString().split('.').last,
+      'direction': direction.name, // Используем .name вместо .toString().split('.').last
     };
   }
 
-  // Создание из мапы
+  /// Создание из мапы
   factory Movement.fromMap(Map<String, dynamic> map) {
     return Movement(
-      movementId: map['movementId'],
-      timestamp: DateTime.parse(map['timestamp']),
-      blockId: map['blockId'],
-      transactionId: map['transactionId'],
-      measurements: Map<String, String>.from(map['measurements']),
-      resources: Map<String, String>.from(map['resources']).map(
+      movementId: map['movementId'] as String,
+      timestamp: DateTime.parse(map['timestamp'] as String),
+      blockId: map['blockId'] as String,
+      transactionId: map['transactionId'] as String,
+      measurements: Map<String, String>.from(map['measurements'] as Map),
+      resources: (map['resources'] as Map<String, String>).map(
         (key, value) => MapEntry(key, BigInt.parse(value)),
       ),
-      direction: Direction.values.firstWhere(
-        (d) => d.toString().split('.').last == map['direction'],
-        orElse: () => Direction.income,
-      ),
+      direction: _parseDirection(map['direction'] as String),
     );
   }
+
+  /// Вспомогательный метод для безопасного парсинга Direction
+  static Direction _parseDirection(String directionStr) {
+    // Ищем соответствующее значение Direction по строке
+    return Direction.values.firstWhere(
+      (d) => d.name == directionStr || d.toString().split('.').last == directionStr,
+      orElse: () => Direction.income,
+    );
+  }
+
+  /// Получение Direction по строковому значению
+  static Direction? tryParseDirection(String value) {
+    try {
+      return Direction.values.firstWhere(
+        (d) => d.name == value || d.toString().split('.').last == value,
+      );
+    } on StateError {
+      // Если не найдено подходящее значение, возвращаем null
+      return null;
+    }
+  }
   
-  // Преобразование движения в строку для записи в файл
+  /// Преобразование движения в строку для записи в файл
   String toDataAreaFormat(List<String> columnOrder) {
     List<String> values = [];
     
@@ -83,7 +114,7 @@ class Movement {
           values.add(transactionId);
           break;
         case 'direction':
-          values.add(direction.toString().split('.').last);
+          values.add(direction.name); // Используем .name вместо .toString().split('.').last
           break;
         default:
           // Проверяем, является ли колонка измерением
@@ -105,7 +136,7 @@ class Movement {
     return values.join('|');
   }
   
-  // Создание движения из строки данных
+  /// Создание движения из строки данных
   static Movement fromDataAreaFormat(String dataLine, List<String> columnOrder) {
     List<String> values = dataLine.split('|');
     
@@ -126,7 +157,11 @@ class Movement {
           movementId = value;
           break;
         case 'timestamp':
-          timestamp = DateTime.parse(value);
+          try {
+            timestamp = DateTime.parse(value);
+          } catch (e) {
+            timestamp = DateTime.now();
+          }
           break;
         case 'blockId':
           blockId = value;
@@ -135,10 +170,7 @@ class Movement {
           transactionId = value;
           break;
         case 'direction':
-          direction = Direction.values.firstWhere(
-            (d) => d.toString().split('.').last == value,
-            orElse: () => Direction.income,
-          );
+          direction = _parseDirection(value);
           break;
         default:
           // Проверяем, является ли колонка измерением
@@ -152,6 +184,8 @@ class Movement {
           else {
             // Если не начинается с префиксов, определяем по схеме
             // (предполагается, что схема будет доступна при парсинге)
+            // Проверяем, есть ли эта колонка в измерениях или ресурсах
+            measurements[column] = value;
           }
           break;
       }
@@ -169,7 +203,7 @@ class Movement {
   }
 }
 
-// Класс для управления областью данных в файле
+/// Класс для управления областью данных в файле
 class DataAreaManager {
   final String databasePath;
   final String databaseName;
@@ -181,87 +215,16 @@ class DataAreaManager {
     required this.tableSchema,
   });
   
-  // Получение пути к файлу движений
+  /// Получение пути к файлу движений
   String get movementsFilePath => '$databasePath/$databaseName.movements';
   
-  // Запись области данных в файл
+  /// Запись области данных в файл
   Future<void> writeDataArea(List<Movement> movements) async {
     File file = File(movementsFilePath);
     
-    // Формируем порядок колонок: сначала системные, потом измерения, затем ресурсы
-    List<String> columnOrder = [
-      'movementId',
-      'timestamp',
-      'blockId',
-      'transactionId',
-      'direction',
-      ...tableSchema.measurements,
-      ...tableSchema.resources,
-    ];
-    
-    // Формируем содержимое области данных
-    List<String> dataLines = [
-      '// DATABASE DATA AREA',
-      // Записываем порядок колонок
-      'columns: ${columnOrder.join('|')}',
-    ];
-    
-    // Добавляем сами данные
-    for (Movement movement in movements) {
-      dataLines.add(movement.toDataAreaFormat(columnOrder));
-    }
-    
-    dataLines.add('// END DATA AREA');
-    
-    // Записываем область данных в файл
-    await file.writeAsString(dataLines.join('\n'), mode: FileMode.writeOnly);
-  }
-  
-  // Чтение области данных из файла
-  Future<List<Movement>> readDataArea() async {
-    File file = File(movementsFilePath);
-    
-    if (!await file.exists()) {
-      return [];
-    }
-    
-    String content = await file.readAsString();
-    List<String> lines = LineSplitter.split(content).toList();
-    
-    // Находим начало и конец области данных
-    int startIndex = -1;
-    int endIndex = -1;
-    
-    for (int i = 0; i < lines.length; i++) {
-      if (lines[i].trim() == '// DATABASE DATA AREA') {
-        startIndex = i;
-      } else if (lines[i].trim() == '// END DATA AREA') {
-        endIndex = i;
-        break;
-      }
-    }
-    
-    // Если область данных не найдена, возвращаем пустой список
-    if (startIndex == -1 || endIndex == -1) {
-      return [];
-    }
-    
-    // Извлекаем строки данных
-    List<String> dataLines = lines.sublist(startIndex + 1, endIndex);
-    
-    if (dataLines.isEmpty) {
-      return [];
-    }
-    
-    // Первая строка содержит описание колонок
-    List<String> columnOrder = [];
-    if (dataLines[0].startsWith('columns: ')) {
-      String columnsLine = dataLines[0].substring(9); // убираем 'columns: '
-      columnOrder = columnsLine.split('|');
-      dataLines = dataLines.sublist(1); // удаляем строку с описанием колонок
-    } else {
-      // Если не нашли строку с описанием колонок, используем стандартный порядок
-      columnOrder = [
+    try {
+      // Формируем порядок колонок: сначала системные, потом измерения, затем ресурсы
+      List<String> columnOrder = [
         'movementId',
         'timestamp',
         'blockId',
@@ -270,22 +233,106 @@ class DataAreaManager {
         ...tableSchema.measurements,
         ...tableSchema.resources,
       ];
-    }
-    
-    // Парсим данные
-    List<Movement> movements = [];
-    for (String dataLine in dataLines) {
-      if (dataLine.trim().isNotEmpty) {
-        Movement movement = Movement.fromDataAreaFormat(dataLine, columnOrder);
-        movements.add(movement);
+      
+      // Формируем содержимое области данных
+      List<String> dataLines = [
+        '// DATABASE DATA AREA',
+        // Записываем порядок колонок
+        'columns: ${columnOrder.join('|')}',
+      ];
+      
+      // Добавляем сами данные
+      for (Movement movement in movements) {
+        dataLines.add(movement.toDataAreaFormat(columnOrder));
       }
+      
+      dataLines.add('// END DATA AREA');
+      
+      // Записываем область данных в файл с временным файлом для безопасности
+      String tempFilePath = '${movementsFilePath}.tmp';
+      File tempFile = File(tempFilePath);
+      await tempFile.writeAsString(dataLines.join('\n'), mode: FileMode.writeOnly);
+      
+      // Атомарно заменяем основной файл
+      await tempFile.rename(movementsFilePath);
+    } catch (e) {
+      throw Exception('Ошибка при записи области данных: $e');
+    }
+  }
+  
+  /// Чтение области данных из файла
+  Future<List<Movement>> readDataArea() async {
+    File file = File(movementsFilePath);
+    
+    if (!await file.exists()) {
+      return [];
     }
     
-    return movements;
+    try {
+      String content = await file.readAsString();
+      List<String> lines = LineSplitter.split(content).toList();
+      
+      // Находим начало и конец области данных
+      int startIndex = -1;
+      int endIndex = -1;
+      
+      for (int i = 0; i < lines.length; i++) {
+        if (lines[i].trim() == '// DATABASE DATA AREA') {
+          startIndex = i;
+        } else if (lines[i].trim() == '// END DATA AREA') {
+          endIndex = i;
+          break;
+        }
+      }
+      
+      // Если область данных не найдена, возвращаем пустой список
+      if (startIndex == -1 || endIndex == -1) {
+        return [];
+      }
+      
+      // Извлекаем строки данных
+      List<String> dataLines = lines.sublist(startIndex + 1, endIndex);
+      
+      if (dataLines.isEmpty) {
+        return [];
+      }
+      
+      // Первая строка содержит описание колонок
+      List<String> columnOrder = [];
+      if (dataLines[0].startsWith('columns: ')) {
+        String columnsLine = dataLines[0].substring(9); // убираем 'columns: '
+        columnOrder = columnsLine.split('|');
+        dataLines = dataLines.sublist(1); // удаляем строку с описанием колонок
+      } else {
+        // Если не нашли строку с описанием колонок, используем стандартный порядок
+        columnOrder = [
+          'movementId',
+          'timestamp',
+          'blockId',
+          'transactionId',
+          'direction',
+          ...tableSchema.measurements,
+          ...tableSchema.resources,
+        ];
+      }
+      
+      // Парсим данные
+      List<Movement> movements = [];
+      for (String dataLine in dataLines) {
+        if (dataLine.trim().isNotEmpty) {
+          Movement movement = Movement.fromDataAreaFormat(dataLine, columnOrder);
+          movements.add(movement);
+        }
+      }
+      
+      return movements;
+    } catch (e) {
+      throw Exception('Ошибка при чтении области данных: $e');
+    }
   }
 }
 
-// Таблица движений - логирование операций
+/// Таблица движений - логирование операций
 class MovementTable {
   final Database database;
   final Table tableSchema;
@@ -301,87 +348,126 @@ class MovementTable {
     );
   }
 
-  // Вставка одного движения
+  /// Вставка одного движения
   Future<void> insertMovement(Movement movement) async {
-    // Валидация данных
-    _validateMovement(movement);
-    
-    // Добавление движения
-    _movements.add(movement);
-    
-    print('Добавлено движение: ${movement.movementId}');
-    
-    // Записываем обновленные данные в файл
-    await _dataAreaManager.writeDataArea(_movements);
+    try {
+      // Валидация данных
+      _validateMovement(movement);
+      
+      // Проверяем, что движения с таким ID еще не существует
+      if (_movements.any((m) => m.movementId == movement.movementId)) {
+        throw StateError('Движение с ID ${movement.movementId} уже существует');
+      }
+      
+      // Добавление движения
+      _movements.add(movement);
+      
+      print('Добавлено движение: ${movement.movementId}');
+      
+      // Записываем обновленные данные в файл
+      await _dataAreaManager.writeDataArea(_movements);
+    } catch (e) {
+      throw Exception('Ошибка при вставке движения: $e');
+    }
   }
   
-  // Вставка множества движений в одной транзакции
+  /// Вставка множества движений в одной транзакции
   Future<void> insertMovementsBatch(List<Movement> movements) async {
-    // Валидация всех движений перед вставкой
-    for (final movement in movements) {
-      _validateMovement(movement);
+    try {
+      // Проверяем на дубликаты внутри батча
+      Set<String> batchIds = <String>{};
+      for (final movement in movements) {
+        if (batchIds.contains(movement.movementId)) {
+          throw StateError('Обнаружен дубликат движения с ID ${movement.movementId} в батче');
+        }
+        batchIds.add(movement.movementId);
+        
+        // Проверяем, что движения с таким ID еще не существует
+        if (_movements.any((m) => m.movementId == movement.movementId)) {
+          throw StateError('Движение с ID ${movement.movementId} уже существует');
+        }
+      }
+      
+      // Валидация всех движений перед вставкой
+      for (final movement in movements) {
+        _validateMovement(movement);
+      }
+      
+      // Добавление всех движений в память
+      _movements.addAll(movements);
+      
+      print('Добавлено ${movements.length} движений в батче');
+      
+      // Записываем обновленные данные в файл единовременно
+      await _dataAreaManager.writeDataArea(_movements);
+    } catch (e) {
+      throw Exception('Ошибка при вставке батча движений: $e');
     }
-    
-    // Добавление всех движений в память
-    _movements.addAll(movements);
-    
-    print('Добавлено ${movements.length} движений в батче');
-    
-    // Записываем обновленные данные в файл единовременно
-    await _dataAreaManager.writeDataArea(_movements);
   }
 
-  // Получение движений по фильтрам
+  /// Получение движений по фильтрам
   Future<List<Movement>> getMovements({
     Map<String, String>? measurementsFilter,
     DateTime? fromTime,
     DateTime? toTime,
     int? limit,
   }) async {
-    // Сначала читаем данные из файла, чтобы обеспечить актуальность
-    List<Movement> movementsFromFile = await _dataAreaManager.readDataArea();
-    
-    // Объединяем с данными в памяти, если они различаются
-    if (movementsFromFile.length != _movements.length) {
-      _movements.clear();
-      _movements.addAll(movementsFromFile);
-    }
-    
-    var result = _movements.where((movement) {
-      // Фильтрация по измерениям
-      if (measurementsFilter != null) {
-        for (final entry in measurementsFilter.entries) {
-          if (movement.measurements[entry.key] != entry.value) {
-            return false;
+    try {
+      // Сначала читаем данные из файла, чтобы обеспечить актуальность
+      List<Movement> movementsFromFile = await _dataAreaManager.readDataArea();
+      
+      // Объединяем с данными в памяти, если они различаются
+      if (movementsFromFile.length != _movements.length) {
+        _movements.clear();
+        _movements.addAll(movementsFromFile);
+      }
+      
+      var result = _movements.where((movement) {
+        // Фильтрация по измерениям
+        if (measurementsFilter != null) {
+          for (final entry in measurementsFilter.entries) {
+            if (movement.measurements[entry.key] != entry.value) {
+              return false;
+            }
           }
         }
+        
+        // Фильтрация по времени
+        if (fromTime != null && movement.timestamp.isBefore(fromTime)) {
+          return false;
+        }
+        
+        if (toTime != null && movement.timestamp.isAfter(toTime)) {
+          return false;
+        }
+        
+        return true;
+      }).toList();
+      
+      // Ограничение количества результатов
+      if (limit != null && result.length > limit) {
+        result = result.sublist(0, limit);
       }
       
-      // Фильтрация по времени
-      if (fromTime != null && movement.timestamp.isBefore(fromTime)) {
-        return false;
-      }
-      
-      if (toTime != null && movement.timestamp.isAfter(toTime)) {
-        return false;
-      }
-      
-      return true;
-    }).toList();
-    
-    // Ограничение количества результатов
-    if (limit != null && result.length > limit) {
-      result = result.sublist(0, limit);
+      return result;
+    } catch (e) {
+      throw Exception('Ошибка при получении движений: $e');
     }
-    
-    return result;
   }
 
-  // Валидация движения
+  /// Валидация движения
   void _validateMovement(Movement movement) {
     // Проверка обязательных полей
     if (movement.movementId.isEmpty) {
       throw ArgumentError('movementId не может быть пустым');
+    }
+    
+    if (movement.blockId.isEmpty) {
+      throw ArgumentError('blockId не может быть пустым');
+    }
+    
+    if (movement.transactionId.isEmpty) {
+      throw ArgumentError('transactionId не может быть пустым');
     }
     
     // Проверка соответствия измерений схеме таблицы
@@ -397,8 +483,21 @@ class MovementTable {
         throw ArgumentError('Ресурс $resource не определен в схеме таблицы');
       }
     }
+    
+    // Проверка, что измерения и ресурсы не пусты, если они определены в схеме
+    for (final measurement in tableSchema.measurements) {
+      if (!movement.measurements.containsKey(measurement)) {
+        throw ArgumentError('Обязательное измерение $measurement отсутствует в движении');
+      }
+    }
+    
+    for (final resource in tableSchema.resources) {
+      if (!movement.resources.containsKey(resource)) {
+        throw ArgumentError('Обязательный ресурс $resource отсутствует в движении');
+      }
+    }
   }
 
-  // Получение количества движений
+  /// Получение количества движений
   int get count => _movements.length;
 }
