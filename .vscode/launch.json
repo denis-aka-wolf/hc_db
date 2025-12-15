@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Movement Demo Debug",
+      "request": "launch",
+      "type": "dart",
+      "program": "${workspaceFolder}/bin/movement_demo.dart",
+      "console": "externalTerminal",
+      "cwd": "${workspaceFolder}",
+      "args": [],
+      "env": {}
+    }
+ ]
+}
